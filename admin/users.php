@@ -245,9 +245,10 @@ if ($is_deleted_tab) {
 }
 
 $rows = $conn->prepare(
-    "SELECT u.*, b.barangay_name
+    "SELECT u.*, b.barangay_name, r.email AS resident_email
        FROM users u
        LEFT JOIN barangays b ON b.id = u.barangay_id
+       LEFT JOIN residents r ON r.user_id = u.id AND r.deleted_at IS NULL
       WHERE 1=1$deleted_where$where
       ORDER BY u.id"
 );
@@ -419,16 +420,21 @@ if ($show_create_form): ?>
 <div class="card table-wrap">
     <table>
         <tr>
-            <th>Username</th><th>Name</th>
+            <th>Username</th><th>Name</th><th>Email</th>
             <th>Role</th><th>Status</th><th>Barangays</th> <th>Action</th>
         </tr>
         <?php if (!$result->num_rows): ?>
-        <tr><td colspan="6" class="muted-meta">No accounts in this category.</td></tr>
+        <tr><td colspan="7" class="muted-meta">No accounts in this category.</td></tr>
         <?php endif; ?>
-        <?php while ($r = $result->fetch_assoc()): ?>
+        <?php while ($r = $result->fetch_assoc()):
+            // Prefer the account's own email; for residents fall back to the
+            // email stored on their linked profile.
+            $row_email = trim((string)($r['email'] ?? '')) !== '' ? $r['email'] : ($r['resident_email'] ?? '');
+        ?>
         <tr>
             <td><?= e($r['username']) ?></td>
             <td><?= e($r['full_name']) ?></td>
+            <td><?= $row_email !== '' ? e($row_email) : '<span class="muted-meta">&mdash;</span>' ?></td>
             <td><?= e($r['role']) ?></td>
             <td><span class="badge badge--<?= e($r['status']) ?>"><?= e(ucfirst($r['status'])) ?></span></td>
             <td><?= e($r['barangay_name'] ?? 'All Barangays') ?></td>
