@@ -17,6 +17,7 @@
 
 
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/mailer.php';
 require_role(['admin', 'secretary']);
 
 $page_title = 'Resident Accounts';
@@ -46,13 +47,25 @@ if (isset($_GET['action'], $_GET['id'])) {
     
 
     $t = $conn->prepare(
-        "SELECT id, username, full_name, role, barangay_id, status
-           FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1"
+        "SELECT u.id, u.username, u.full_name, u.role, u.barangay_id, u.status,
+                u.email AS account_email, r.email AS resident_email, b.barangay_name
+           FROM users u
+           LEFT JOIN residents r ON r.user_id = u.id AND r.deleted_at IS NULL
+           LEFT JOIN barangays b ON b.id = u.barangay_id
+          WHERE u.id = ? AND u.deleted_at IS NULL LIMIT 1"
     );
     $t->bind_param('i', $uid);
     $t->execute();
     $target = $t->get_result()->fetch_assoc();
     $t->close();
+
+    // Best email we have for this resident: account email, else profile email.
+    $target_email = '';
+    if ($target) {
+        $target_email = trim((string)($target['account_email'] ?? '')) !== ''
+            ? (string)$target['account_email']
+            : (string)($target['resident_email'] ?? '');
+    }
 
     if (!$target) {
         deny_access('Account not found.');
@@ -102,46 +115,72 @@ if (isset($_GET['action'], $_GET['id'])) {
             redirect(url('secretary/resident_accounts.php?notice=error'));
         }
 
+        // On approval/activation, notify the resident by email (if we have one).
+        $mail_flag = '';
+        if ($ok && $new === 'active' && in_array($action, ['approve', 'activate'], true)) {
+            if ($target_email !== '' && mail_is_configured()) {
+                $sent = mail_send_account_approved(
+                    $target_email,
+                    (string)$target['full_name'],
+                    (string)$target['username'],
+                    (string)($target['barangay_name'] ?? '')
+                );
+                $mail_flag = $sent ? '&mailed=1' : '&mailed=0';
+                log_access($sent ? 'resident_approved_emailed' : 'resident_approved_email_failed', 'user', $uid, $sent ? 'allowed' : 'denied');
+            } else {
+                $mail_flag = '&mailed=0';
+            }
+        }
+
         redirect(url('secretary/resident_accounts.php?notice=' . rawurlencode($action)
-               . ($ok ? '' : '&blocked=1')));
+               . ($ok ? '' : '&blocked=1') . $mail_flag));
     }
 
     if ($action === 'reset') {
-        
-
-        $plain     = bin2hex(random_bytes(32));
-        $tokenHash = hash('sha256', $plain);
-
-        $inv = $conn->prepare('UPDATE password_reset_tokens SET used_at=NOW()
-                                WHERE user_id=? AND used_at IS NULL');
-        $inv->bind_param('i', $uid);
-        $inv->execute();
-        $inv->close();
-
-        $ins = $conn->prepare(
-            'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, created_by)
-             VALUES (?,?,DATE_ADD(NOW(), INTERVAL 1 HOUR),?)'
-        );
+        // Issue a fresh single-use token (invalidates any previous one).
         $actor = (int)current_user()['id'];
-        $ins->bind_param('isi', $uid, $tokenHash, $actor);
-        if ($ins->execute()) {
-            $reset_link = 'reset_password.php?token=' . $plain;
-        }
-        $ins->close();
+        $plain = reset_issue_token($conn, $uid, $actor);
 
-        log_access('resident_reset_link', 'user', $uid);
+        if ($plain === '') {
+            log_access('resident_reset_link_failed', 'user', $uid, 'denied');
+            redirect(url('secretary/resident_accounts.php?notice=error'));
+        }
+
+        // Prefer to email the reset link to the resident; fall back to showing
+        // the one-time link on screen if there's no email / mail is unconfigured
+        // / the send fails.
+        if ($target_email !== '' && mail_is_configured()) {
+            $url    = mail_build_reset_url($plain);
+            $mailed = mail_send_reset($target_email, (string)$target['full_name'], $url);
+            if ($mailed) {
+                log_access('resident_reset_link_emailed', 'user', $uid);
+                redirect(url('secretary/resident_accounts.php?notice=reset_sent'));
+            }
+            log_access('resident_reset_link_email_failed', 'user', $uid, 'denied');
+        }
+
+        // Fallback: show the one-time link on the page.
+        log_access('resident_reset_link_shown', 'user', $uid);
+        $reset_link = url('auth/reset_password.php?token=' . $plain);
     }
 }
 
 $notices = [
-    'approve'  => 'Resident account approved - the resident can now sign in.',
-    'activate' => 'Resident account reactivated.',
-    'reject'   => 'Registration rejected - that account cannot sign in.',
-    'suspend'  => 'Resident account suspended.',
-    'error'    => 'The account could not be updated. Check the access log for details.',
+    'approve'    => 'Resident account approved - the resident can now sign in.',
+    'activate'   => 'Resident account reactivated.',
+    'reject'     => 'Registration rejected - that account cannot sign in.',
+    'suspend'    => 'Resident account suspended.',
+    'reset_sent' => 'Password-reset link emailed to the resident. It expires in 1 hour and can be used once.',
+    'error'      => 'The account could not be updated. Check the access log for details.',
 ];
 if (isset($_GET['notice'])) {
     $notice = $notices[$_GET['notice']] ?? '';
+    // Append email status to the approve/activate notice.
+    if (in_array($_GET['notice'], ['approve', 'activate'], true) && isset($_GET['mailed'])) {
+        $notice .= ($_GET['mailed'] === '1')
+            ? ' A notification email was sent to the resident.'
+            : ' (No email on file or email could not be sent.)';
+    }
 }
 if (isset($_GET['blocked'])) {
     $notice = 'That account could not be changed (it may be staff, or belong to another barangay).';
@@ -149,8 +188,8 @@ if (isset($_GET['blocked'])) {
  
 $pending = [];
 $pq = $conn->prepare(
-    "SELECT u.id, u.username, u.full_name, u.created_at,
-            r.id AS resident_id, r.last_name, r.first_name, r.middle_name, r.age
+    "SELECT u.id, u.username, u.full_name, u.created_at, u.email AS account_email,
+            r.id AS resident_id, r.last_name, r.first_name, r.middle_name, r.age, r.email AS resident_email
        FROM users u
        LEFT JOIN residents r ON r.user_id = u.id
       WHERE u.deleted_at IS NULL AND u.status = 'pending' AND u.role = 'resident' AND u.barangay_id = ?
@@ -167,8 +206,8 @@ $pq->close();
 
 $accounts = [];
 $aq = $conn->prepare(
-    "SELECT u.id, u.username, u.full_name, u.status, u.created_at,
-            r.id AS resident_id, r.last_name, r.first_name, r.middle_name, r.age
+    "SELECT u.id, u.username, u.full_name, u.status, u.created_at, u.email AS account_email,
+            r.id AS resident_id, r.last_name, r.first_name, r.middle_name, r.age, r.email AS resident_email
        FROM users u
        LEFT JOIN residents r ON r.user_id = u.id
       WHERE u.deleted_at IS NULL AND u.role = 'resident' AND u.barangay_id = ? AND u.status <> 'pending'
@@ -229,8 +268,9 @@ include BASE_PATH . '/partials/header.php';
 <div class="card table-wrap">
     <h3 style="padding:12px 14px;margin:0">Awaiting your approval</h3>
     <table>
-        <tr><th>Username</th><th>Resident Name</th><th>Registered</th><th>Decision</th></tr>
+        <tr><th>Username</th><th>Resident Name</th><th>Email</th><th>Registered</th><th>Decision</th></tr>
         <?php foreach ($pending as $p): ?>
+        <?php $p_email = trim((string)($p['account_email'] ?? '')) !== '' ? $p['account_email'] : ($p['resident_email'] ?? ''); ?>
         <tr>
             <td><?= e($p['username']) ?></td>
             <td>
@@ -241,6 +281,7 @@ include BASE_PATH . '/partials/header.php';
                     <br><span class="muted-meta">Details still need verification</span>
                 <?php endif; ?>
             </td>
+            <td><?= $p_email !== '' ? e($p_email) : '<span class="muted-meta">&mdash;</span>' ?></td>
             <td><?= e($p['created_at'] ? date('M j, Y', strtotime($p['created_at'])) : '-') ?></td>
             <td>
                 <a class="btn-approve" href="<?= e(url('secretary/resident_accounts.php?action=approve&id=' . (int)$p['id'] . '&token=' . csrf_token())) ?>">Approve</a>
@@ -257,14 +298,16 @@ include BASE_PATH . '/partials/header.php';
 <div class="card table-wrap">
     <h3 style="padding:12px 14px;margin:0">Resident accounts</h3>
     <table>
-        <tr><th>Username</th><th>Resident Name</th><th>Status</th><th>Registered</th><th>Action</th></tr>
+        <tr><th>Username</th><th>Resident Name</th><th>Email</th><th>Status</th><th>Registered</th><th>Action</th></tr>
         <?php if (!$accounts): ?>
-            <tr><td colspan="5" style="text-align:center">No resident accounts in this barangay yet.</td></tr>
+            <tr><td colspan="6" style="text-align:center">No resident accounts in this barangay yet.</td></tr>
         <?php endif; ?>
         <?php foreach ($accounts as $a): ?>
+        <?php $a_email = trim((string)($a['account_email'] ?? '')) !== '' ? $a['account_email'] : ($a['resident_email'] ?? ''); ?>
         <tr>
             <td><?= e($a['username']) ?></td>
             <td><?= e(trim(($a['last_name'] ?? '') . ', ' . ($a['first_name'] ?? '') . ' ' . ($a['middle_name'] ?? ''), ', ')) ?></td>
+            <td><?= $a_email !== '' ? e($a_email) : '<span class="muted-meta">&mdash;</span>' ?></td>
             <td><span class="badge badge--<?= e($a['status']) ?>"><?= e(ucfirst($a['status'])) ?></span></td>
             <td><?= e($a['created_at'] ? date('M j, Y', strtotime($a['created_at'])) : '-') ?></td>
             <td>
