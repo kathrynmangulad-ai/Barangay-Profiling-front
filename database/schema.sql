@@ -79,6 +79,7 @@ CREATE TABLE `residents` (
   `civil_status` varchar(50) DEFAULT NULL,
   `occupation` varchar(100) DEFAULT NULL,
   `contact_no` varchar(30) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
   `address` varchar(255) DEFAULT NULL,
   `photo` varchar(255) DEFAULT NULL,
   `household_no` varchar(50) DEFAULT NULL,

@@ -134,28 +134,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error_fields = ['email'];
     }
 
-    if ($error === '' && $email !== '' && users_has_email_column($conn)) {
-        $ck = $conn->prepare('SELECT id FROM users WHERE email=? AND deleted_at IS NULL LIMIT 1');
-        if ($ck) {
-            $ck->bind_param('s', $email);
-            $ck->execute();
-            $dup = (bool)$ck->get_result()->fetch_assoc();
-            $ck->close();
-            if ($dup) { $error = 'That email address is already registered. Please use another.'; $error_fields = ['email']; }
-        }
-    }
+    // Email is stored on the resident profile as a contact detail (Option A).
+    $email_val = ($email !== '') ? $email : null;
 
     if ($error === '') {
         $stmt = $conn->prepare(
             "INSERT INTO residents
              (barangay_id, last_name, first_name, middle_name, sex, age, birth_date,
-              civil_status, occupation, contact_no, address, photo, is_pwd, is_student, household_no)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+              civil_status, occupation, contact_no, email, address, photo, is_pwd, is_student, household_no)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
         if ($stmt === false) { die('Prepare Error: ' . $conn->error); }
 
         $stmt->bind_param(
-            'issssisssssssss',
+            'issssissssssssss',
             $barangay_id,
             $last_name,
             $first_name,
@@ -166,6 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $civil_status,
             $occupation,
             $contact_no,
+            $email_val,
             $address,
             $photo,
             $is_pwd,

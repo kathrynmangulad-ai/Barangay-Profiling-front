@@ -89,18 +89,15 @@ if($_SERVER['REQUEST_METHOD']==='POST')
         if ($error !== '') {
              
         } else {
+        $email_val = ($email !== '') ? $email : null;
         $stmt=$conn->prepare("UPDATE residents SET photo=?,last_name=?,first_name=?,middle_name=?,
-        sex=?,age=?,birth_date=?,civil_status=?,occupation=?,contact_no=?,address=?,is_pwd=?,
+        sex=?,age=?,birth_date=?,civil_status=?,occupation=?,contact_no=?,email=?,address=?,is_pwd=?,
         is_student=? ,household_no=?  WHERE id=?");
 
-        
-
-
-
-        $stmt->bind_param('sssssissssssssi',
+        $stmt->bind_param('sssssisssssssssi',
             $photo, $last_name, $first_name, $middle_name, $sex,
             $age, $birth_date_v, $civil_status, $occupation, $contact_no,
-            $address, $is_pwd, $is_student, $household_no, $id);
+            $email_val, $address, $is_pwd, $is_student, $household_no, $id);
 
         if($stmt->execute()) {
             $stmt->close();
@@ -108,7 +105,7 @@ if($_SERVER['REQUEST_METHOD']==='POST')
             if ($account_id > 0 && users_has_email_column($conn)) {
                 $ue = $conn->prepare('UPDATE users SET email=? WHERE id=? LIMIT 1');
                 if ($ue) {
-                    $ue->bind_param('si', $email, $account_id);
+                    $ue->bind_param('si', $email_val, $account_id);
                     $ue->execute();
                     $ue->close();
                 }
@@ -125,6 +122,7 @@ if($_SERVER['REQUEST_METHOD']==='POST')
     $r['last_name']    = $last_name;
     $r['first_name']   = $first_name;
     $r['middle_name']  = $middle_name;
+    $r['email']        = $email;
     $r['account_email'] = $email;
     $r['sex']          = $sex;
     $r['age']          = $age;
@@ -147,7 +145,7 @@ include BASE_PATH . '/partials/header.php';?>
     <div><label for="last_name">Last Name</label><input id="last_name" name="last_name" value="<?=e($r['last_name'])?>" required></div>
     <div><label for="first_name">First Name</label><input id="first_name" name="first_name" value="<?=e($r['first_name'])?>" required></div>
     <div><label for="middle_name">Middle Name</label><input id="middle_name" name="middle_name" value="<?=e($r['middle_name']) ?>"></div>
-    <div><label for="email">Email address</label><input id="email" type="email" name="email" maxlength="255" autocomplete="email" value="<?=e($r['account_email'] ?? '') ?>" placeholder="Used for password recovery"></div>
+    <div><label for="email">Email address</label><input id="email" type="email" name="email" maxlength="255" autocomplete="email" value="<?=e($r['email'] ?? ($r['account_email'] ?? '')) ?>" placeholder="Contact email (optional)"></div>
     <div>
         <label for="sex">Sex</label>
         <select id="sex" name="sex">

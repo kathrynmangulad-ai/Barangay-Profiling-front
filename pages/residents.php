@@ -168,7 +168,7 @@ include BASE_PATH . '/partials/header.php';?>
     <td style="white-space:nowrap"><?= $cell($r['household_no']) ?></td>
     <td><?= $cell($r['occupation']) ?></td>
     <td style="white-space:nowrap"><?= $cell($r['contact_no']) ?></td>
-    <td><?= $cell($r['account_email'] ?? null) ?></td>
+    <td><?= $cell($r['email'] ?? ($r['account_email'] ?? null)) ?></td>
     <td style="white-space:nowrap">
     <?php if($view_deleted): ?>
     <a href="<?= e(url('actions/resident_restore.php?id=' . (int)$r['id'] . '&token=' . csrf_token())) ?>"

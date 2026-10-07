@@ -41,6 +41,8 @@ ALTER TABLE `users`
 ALTER TABLE `residents`
   ADD COLUMN IF NOT EXISTS `deleted_at` timestamp NULL DEFAULT NULL AFTER `updated_at`;
 ALTER TABLE `residents`
+  ADD COLUMN IF NOT EXISTS `email` varchar(255) DEFAULT NULL AFTER `contact_no`;
+ALTER TABLE `residents`
   ADD INDEX IF NOT EXISTS `idx_residents_deleted_at` (`deleted_at`);
 
 -- -----------------------------------------------------------------------------
