@@ -60,12 +60,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $is_student   = isset($_POST['is_student']) ? 'Yes' : 'No';
     $birth_date   = ($birth_date !== '') ? $birth_date : null;
 
+    // Validate + compute age from the birth date. A valid date must be exactly
+    // YYYY-MM-DD, not in the future, and within the last 120 years. Anything
+    // else (e.g. a 5-digit year like "20001") is rejected.
     $age  = 0;
     if ($birth_date !== null) {
-        $bd    = DateTime::createFromFormat('!Y-m-d', $birth_date);
-        $today = new DateTime('today');
-        if ($bd instanceof DateTime && $bd->format('Y-m-d') === $birth_date && $bd <= $today) {
+        $bd     = DateTime::createFromFormat('!Y-m-d', $birth_date);
+        $today  = new DateTime('today');
+        $oldest = (new DateTime('today'))->modify('-120 years');
+        $valid  = ($bd instanceof DateTime)
+            && $bd->format('Y-m-d') === $birth_date   // round-trips exactly (rejects bad input)
+            && $bd <= $today                           // not in the future
+            && $bd >= $oldest;                         // within 120 years
+        if ($valid) {
             $age = (int)$today->diff($bd)->y;
+        } else {
+            $error = 'Please enter a valid birth date (year must be realistic and not in the future).';
+            $error_fields[] = 'birth_date';
+            $birth_date = null;
         }
     }
 
@@ -236,7 +248,15 @@ include BASE_PATH . '/partials/header.php';
 
             <div>
                 <label for="birth_date">Birth Date</label>
-                <input id="birth_date" type="date" name="birth_date" value="<?= e($old['birth_date']) ?>">
+                <?php
+                // Bound the date picker to a realistic range so a 5-digit year
+                // (e.g. "20001") can't be entered. Oldest allowed: 120 years ago;
+                // latest: today.
+                $bd_min = date('Y-m-d', strtotime('-120 years'));
+                $bd_max = date('Y-m-d');
+                ?>
+                <input id="birth_date" type="date" name="birth_date" value="<?= e($old['birth_date']) ?>"
+                       min="<?= e($bd_min) ?>" max="<?= e($bd_max) ?>"<?= in_array('birth_date', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
             </div>
 
             <div>

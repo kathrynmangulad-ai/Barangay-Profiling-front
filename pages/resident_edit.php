@@ -42,7 +42,7 @@ if($_SERVER['REQUEST_METHOD']==='POST')
         $middle_name  = trim($_POST['middle_name'] ?? '');
         $email        = trim($_POST['email'] ?? '');
         $sex          = trim($_POST['sex'] ?? '');
-        $age          = (int)($_POST['age'] ?? 0);
+        // Age is computed from the birth date, never trusted from the form.
         $birth_date   = trim($_POST['birth_date'] ?? '');
         $civil_status = trim($_POST['civil_status'] ?? '');
         $occupation   = trim($_POST['occupation'] ?? '');
@@ -55,12 +55,27 @@ if($_SERVER['REQUEST_METHOD']==='POST')
 
         $birth_date_v = ($birth_date !== '') ? $birth_date : null;
 
-        
+        // Validate the birth date (exact YYYY-MM-DD, not future, within 120
+        // years) and compute age from it. Rejects bad input like a 5-digit year.
+        $age = (int)$r['age'];
+        if ($birth_date_v !== null) {
+            $bd     = DateTime::createFromFormat('!Y-m-d', $birth_date_v);
+            $today  = new DateTime('today');
+            $oldest = (new DateTime('today'))->modify('-120 years');
+            if (($bd instanceof DateTime) && $bd->format('Y-m-d') === $birth_date_v && $bd <= $today && $bd >= $oldest) {
+                $age = (int)$today->diff($bd)->y;
+            } else {
+                $error = 'Please enter a valid birth date (year must be realistic and not in the future).';
+                $birth_date_v = null;
+            }
+        } else {
+            $age = 0;
+        }
 
         $account_id = (int)($r['account_id'] ?? 0);
-        if ($email !== '' && (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255)) {
+        if ($error === '' && $email !== '' && (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255)) {
             $error = 'Please enter a valid email address.';
-        } elseif ($email !== '' && $account_id > 0 && users_has_email_column($conn)) {
+        } elseif ($error === '' && $email !== '' && $account_id > 0 && users_has_email_column($conn)) {
             $ck = $conn->prepare('SELECT id FROM users WHERE email=? AND id<>? AND deleted_at IS NULL LIMIT 1');
             if ($ck) {
                 $ck->bind_param('si', $email, $account_id);
@@ -123,6 +138,7 @@ if($_SERVER['REQUEST_METHOD']==='POST')
     $r['is_student']   = $is_student;
 }
 
+$page_scripts = ['assets/js/resident_age.js'];
 include BASE_PATH . '/partials/header.php';?>
 <h2>Edit Resident</h2>
 <?php if ($error !== ''): ?><div class="alert alert-danger" role="alert"><?= e($error) ?></div><?php endif; ?>
@@ -140,8 +156,9 @@ include BASE_PATH . '/partials/header.php';?>
             <option value="Female"<?= $r['sex'] === 'Female' ? ' selected' : '' ?>>Female</option>
         </select>
     </div>
-    <div><label for="age">Age</label><input id="age" type="number" min="0" max="150" name="age" value="<?=e($r['age']) ?>"></div>
-    <div><label for="birth_date">Birth Date</label><input id="birth_date" type="date" name="birth_date" value="<?=e($r['birth_date']) ?>"></div>
+    <div><label for="age">Age</label><input id="age" type="number" min="0" max="150" name="age" value="<?=e($r['age']) ?>" readonly title="Automatically computed from the birth date"></div>
+    <?php $bd_min = date('Y-m-d', strtotime('-120 years')); $bd_max = date('Y-m-d'); ?>
+    <div><label for="birth_date">Birth Date</label><input id="birth_date" type="date" name="birth_date" value="<?=e($r['birth_date']) ?>" min="<?= e($bd_min) ?>" max="<?= e($bd_max) ?>"></div>
     <div>
         <label for="civil_status">Civil Status</label>
         <select id="civil_status" name="civil_status">
