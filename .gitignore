@@ -2,9 +2,11 @@
 # Secrets / local-only configuration
 # ---------------------------------------------------------------------------
 # Secrets live in config/.env (see config/.env.example). Never commit the .env.
-# The old flat config.php is also ignored in case a machine still has a copy
-# with inline credentials from before the .env refactor.
-config.php
+#
+# NOTE: config/config.php is intentionally COMMITTED now - it holds no secrets,
+# only bootstrap/env-reading logic. A fresh clone needs it to run. The old flat
+# root config.php (pre-refactor, may contain inline credentials) stays ignored.
+/config.php
 config/config.local.php
 
 # Environment files, anywhere in the tree
