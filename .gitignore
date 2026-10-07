@@ -1,0 +1,51 @@
+# ---------------------------------------------------------------------------
+# Secrets / local-only configuration
+# ---------------------------------------------------------------------------
+# Secrets live in config/.env (see config/.env.example). Never commit the .env.
+# The old flat config.php is also ignored in case a machine still has a copy
+# with inline credentials from before the .env refactor.
+config.php
+config/config.local.php
+
+# Environment files, anywhere in the tree
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!config/.env.example
+
+# ---------------------------------------------------------------------------
+# Stray session cookie dump (libcurl "Netscape HTTP Cookie File").
+# The file literally named "S" was a curl cookie jar containing a live
+# PHPSESSID - pushing it would leak an authenticated session.
+S
+*.cookie
+cookies.txt
+
+# ---------------------------------------------------------------------------
+# Uploaded resident photos (real people's personal data)
+# ---------------------------------------------------------------------------
+# Never commit uploaded files, but DO keep the folder structure and its
+# protective .htaccess so a fresh clone is secure out of the box.
+uploads/*
+!uploads/.htaccess
+!uploads/residents/
+uploads/residents/*
+!uploads/residents/.gitkeep
+
+# ---------------------------------------------------------------------------
+# PHP / tooling
+# ---------------------------------------------------------------------------
+*.log
+*.sql.bak
+.php-cs-fixer.cache
+.phpunit.result.cache
+
+# Local editor / OS noise
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store

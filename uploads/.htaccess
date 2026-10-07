@@ -1,0 +1,27 @@
+# Uploaded files (resident photos) may be served as images, but must NEVER be
+# executed as scripts. This blocks PHP/CGI execution in this directory even if
+# a malicious file is uploaded with a disguised extension.
+
+# Turn off any PHP engine for this directory.
+<IfModule mod_php7.c>
+    php_admin_flag engine off
+</IfModule>
+<IfModule mod_php.c>
+    php_admin_flag engine off
+</IfModule>
+
+# Strip handlers that would execute code, and force known image types to be
+# served as plain downloads/images rather than run.
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .pht .cgi .pl .py .asp .aspx
+RemoveType .php .phtml .php3 .php4 .php5 .php7 .pht
+
+# Belt-and-suspenders: explicitly deny direct requests to any script file here.
+<FilesMatch "\.(php|phtml|php[0-9]|pht|cgi|pl|py|asp|aspx|sh)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

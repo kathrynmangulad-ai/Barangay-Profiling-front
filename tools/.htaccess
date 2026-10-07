@@ -1,0 +1,14 @@
+# Deny all direct web access.
+# These are dangerous dev/setup/test scripts (account creation with default
+# passwords, RBAC test harness that mutates data). They must NOT be reachable
+# from a browser on any deployed site. Run them from the CLI instead, e.g.:
+#   php tools/create_admin.php
+# (create_admin / create_secretary also keep their require_admin() guard.)
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

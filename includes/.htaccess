@@ -1,0 +1,10 @@
+# Deny all direct web access. These are shared PHP includes (auth, mailer,
+# env loader) meant to be pulled in by pages, never requested directly.
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>
