@@ -18,6 +18,7 @@ $error_fields = [];
 
 $old = [
     'barangay_id'  => ($_SESSION['role'] === 'admin') ? 0 : (int)($_SESSION['barangay_id'] ?? 0),
+    'username'     => '',
     'last_name'    => '',
     'first_name'   => '',
     'middle_name'  => '',
@@ -41,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ? (int)($_POST['barangay_id'] ?? 0)
         : (int)($_SESSION['barangay_id'] ?? 0);
 
+    $username     = trim($_POST['username'] ?? '');
     $last_name    = trim($_POST['last_name'] ?? '');
     $first_name   = trim($_POST['first_name'] ?? '');
     $middle_name  = trim($_POST['middle_name'] ?? '');
@@ -84,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
      
     $old = [
         'barangay_id'  => $barangay_id,
+        'username'     => $username,
         'last_name'    => $last_name,
         'first_name'   => $first_name,
         'middle_name'  => $middle_name,
@@ -137,42 +140,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Email is stored on the resident profile as a contact detail (Option A).
     $email_val = ($email !== '') ? $email : null;
 
-    if ($error === '') {
-        $stmt = $conn->prepare(
-            "INSERT INTO residents
-             (barangay_id, last_name, first_name, middle_name, sex, age, birth_date,
-              civil_status, occupation, contact_no, email, address, photo, is_pwd, is_student, household_no)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        );
-        if ($stmt === false) { die('Prepare Error: ' . $conn->error); }
+    // Account creation is OPTIONAL: only when a username is provided do we also
+    // create a linked resident LOGIN account. Blank username = profile only.
+    $make_account = ($username !== '');
 
-        $stmt->bind_param(
-            'issssissssssssss',
-            $barangay_id,
-            $last_name,
-            $first_name,
-            $middle_name,
-            $sex,
-            $age,
-            $birth_date,
-            $civil_status,
-            $occupation,
-            $contact_no,
-            $email_val,
-            $address,
-            $photo,
-            $is_pwd,
-            $is_student,
-            $household_no
-        );
-
-        if ($stmt->execute()) {
-            $stmt->close();
-            flash('ok', 'Resident added successfully.');
-            redirect(url('pages/residents.php'));
+    if ($error === '' && $make_account) {
+        if (strlen($username) > 100) {
+            $error = 'Username is too long (max 100 characters).';
+            $error_fields[] = 'username';
+        } else {
+            // Username must be unique among non-deleted accounts.
+            $uq = $conn->prepare('SELECT id FROM users WHERE username=? AND deleted_at IS NULL LIMIT 1');
+            $uq->bind_param('s', $username);
+            $uq->execute();
+            if ($uq->get_result()->fetch_assoc()) {
+                $error = 'That username is already taken. Please choose another.';
+                $error_fields[] = 'username';
+            }
+            $uq->close();
         }
-        $error = 'Failed to save resident: ' . $stmt->error;
-        $stmt->close();
+        // If an email was supplied, it must also be unique among accounts.
+        if ($error === '' && $email_val !== null && users_has_email_column($conn)) {
+            $eq = $conn->prepare('SELECT id FROM users WHERE email=? AND deleted_at IS NULL LIMIT 1');
+            $eq->bind_param('s', $email_val);
+            $eq->execute();
+            if ($eq->get_result()->fetch_assoc()) {
+                $error = 'That email address is already registered to an account. Please use another.';
+                $error_fields[] = 'email';
+            }
+            $eq->close();
+        }
+    }
+
+    if ($error === '') {
+        // Insert the resident profile, and (optionally) a linked login account,
+        // atomically so we never end up with half a record.
+        $conn->begin_transaction();
+        try {
+            $stmt = $conn->prepare(
+                "INSERT INTO residents
+                 (barangay_id, last_name, first_name, middle_name, sex, age, birth_date,
+                  civil_status, occupation, contact_no, email, address, photo, is_pwd, is_student, household_no)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            );
+            if ($stmt === false) { throw new RuntimeException('prepare residents failed: ' . $conn->error); }
+            $stmt->bind_param(
+                'issssissssssssss',
+                $barangay_id, $last_name, $first_name, $middle_name, $sex, $age, $birth_date,
+                $civil_status, $occupation, $contact_no, $email_val, $address, $photo,
+                $is_pwd, $is_student, $household_no
+            );
+            if (!$stmt->execute()) { throw new RuntimeException('insert resident failed: ' . $stmt->error); }
+            $resident_id = (int)$conn->insert_id;
+            $stmt->close();
+
+            if ($make_account) {
+                // Auto-generate a password; it is shown once to the secretary.
+                $generated_password = bin2hex(random_bytes(5)); // 10-char hex
+                $hash = password_hash($generated_password, PASSWORD_DEFAULT);
+                $role = 'resident';
+                $status = 'active';
+
+                $us = $conn->prepare(
+                    "INSERT INTO users (username, email, password, full_name, role, barangay_id, status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)"
+                );
+                if ($us === false) { throw new RuntimeException('prepare users failed: ' . $conn->error); }
+                $full_name = trim($first_name . ' ' . $last_name);
+                $us->bind_param('sssssis', $username, $email_val, $hash, $full_name, $role, $barangay_id, $status);
+                if (!$us->execute()) { throw new RuntimeException('insert user failed: ' . $us->error); }
+                $new_user_id = (int)$conn->insert_id;
+                $us->close();
+
+                // Link the profile to the account.
+                $lk = $conn->prepare('UPDATE residents SET user_id=? WHERE id=?');
+                $lk->bind_param('ii', $new_user_id, $resident_id);
+                if (!$lk->execute()) { throw new RuntimeException('link user failed: ' . $lk->error); }
+                $lk->close();
+
+                log_access('user_create', 'user', $new_user_id);
+            }
+
+            $conn->commit();
+            log_access('resident_added', 'resident', $resident_id);
+
+            if ($make_account) {
+                // Stash the one-time credentials to show on the next screen.
+                flash('ok', 'Resident added and a login account was created. '
+                    . 'Username: ' . $username . '  -  Temporary password: ' . $generated_password
+                    . '  (shown once - please give it to the resident).');
+            } else {
+                flash('ok', 'Resident added successfully.');
+            }
+            redirect(url('pages/residents.php'));
+        } catch (Throwable $ex) {
+            $conn->rollback();
+            $error = 'Failed to save resident: ' . $ex->getMessage();
+        }
     }
 }
 
@@ -204,6 +268,12 @@ include BASE_PATH . '/partials/header.php';
                     </select>
                 </div>
             <?php endif; ?>
+
+            <div>
+                <label for="username">Login Username (optional)</label>
+                <input id="username" name="username" value="<?= e($old['username']) ?>" maxlength="100" autocomplete="off" placeholder="Leave blank for a profile-only record"<?= in_array('username', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
+                <p class="field-hint">Fill this in to also create a login account for the resident. A temporary password is generated and shown once after saving.</p>
+            </div>
 
             <div>
                 <label for="last_name">Last Name</label>
