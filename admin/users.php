@@ -16,6 +16,7 @@ $tabs = [
     'approved'  => ['label' => 'All Approved',     'role' => null,        'status' => ['active']],
     'admin'     => ['label' => 'Administrators',   'role' => 'admin',     'status' => ['active']],
     'secretary' => ['label' => 'Secretaries',      'role' => 'secretary', 'status' => ['active']],
+    'resident'  => ['label' => 'Residents',        'role' => 'resident',  'status' => ['active']],
     'pending'   => ['label' => 'Pending Approval', 'role' => null,        'status' => ['pending']],
     'blocked'   => ['label' => 'Not Approved',     'role' => null,        'status' => ['rejected', 'suspended']],
     'deleted'   => ['label' => 'Deleted',          'role' => null,        'status' => [], 'deleted' => true],
