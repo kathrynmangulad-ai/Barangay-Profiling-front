@@ -232,6 +232,77 @@ if (!function_exists('mail_send_registration')) {
     }
 }
 
+if (!function_exists('mail_send_credentials')) {
+    /**
+     * Email a newly created resident their login credentials (username + the
+     * one-time generated password). Returns true on success, false otherwise.
+     * Caller should fall back to showing the password on screen if this fails.
+     */
+    function mail_send_credentials($to_email, $to_name, $username, $password) {
+        $to_email = trim((string)$to_email);
+        if ($to_email === '' || !filter_var($to_email, FILTER_VALIDATE_EMAIL)) { return false; }
+        if (!mail_is_configured()) { error_log('[mailer] credentials skipped: SMTP not configured.'); return false; }
+        if (!function_exists('stream_socket_client')) { return false; }
+
+        $c  = mail_config();
+        $fp = @stream_socket_client('tcp://'.$c['host'].':'.($c['port']>0?$c['port']:587), $en, $es, 15, STREAM_CLIENT_CONNECT);
+        if (!$fp) { error_log('[mailer] credentials connect failed.'); return false; }
+        stream_set_timeout($fp, 15);
+        if ((int)substr(mail_smtp_readline($fp),0,3) !== 220) { fclose($fp); return false; }
+        $local = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+        if (mail_smtp_cmd($fp,'EHLO '.$local)===false) { fclose($fp); return false; }
+        if (mail_smtp_cmd($fp,'STARTTLS',[220])===false) { fclose($fp); return false; }
+        if (!@stream_socket_enable_crypto($fp,true,STREAM_CRYPTO_METHOD_TLS_CLIENT)) { fclose($fp); return false; }
+        if (mail_smtp_cmd($fp,'EHLO '.$local)===false) { fclose($fp); return false; }
+        if (mail_smtp_cmd($fp,'AUTH LOGIN',[334])===false) { fclose($fp); return false; }
+        if (mail_smtp_cmd($fp,base64_encode($c['user']),[334])===false) { fclose($fp); return false; }
+        if (mail_smtp_cmd($fp,base64_encode($c['pass']),[235])===false) { fclose($fp); return false; }
+        if (mail_smtp_cmd($fp,'MAIL FROM:<'.$c['from'].'>')===false) { fclose($fp); return false; }
+        if (mail_smtp_cmd($fp,'RCPT TO:<'.$to_email.'>',[250,251])===false) { fclose($fp); return false; }
+        if (mail_smtp_cmd($fp,'DATA',[354])===false) { fclose($fp); return false; }
+
+        // Build the login URL from APP_BASE_URL (so the email has a clickable link).
+        $base = defined('APP_BASE_URL') ? rtrim((string)APP_BASE_URL, '/') : '';
+        if ($base === '') {
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $hostname = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+            $base = $scheme.'://'.$hostname;
+        }
+        $login_url = $base.'/auth/login.php';
+
+        $safe_name = trim(preg_replace('/[\r\n]+/',' ',(string)$to_name));
+        $safe_user = trim(preg_replace('/[\r\n]+/',' ',(string)$username));
+        $safe_pass = trim(preg_replace('/[\r\n]+/',' ',(string)$password));
+        $subject = 'Your Barangay System account and login details';
+        $b = 'bms_'.bin2hex(random_bytes(12));
+
+        $text = "Hello".($safe_name!==''?' '.$safe_name:'').",\r\n\r\n"
+              . "A login account has been created for you in the Barangay System.\r\n\r\n"
+              . "Username: ".$safe_user."\r\n"
+              . "Temporary password: ".$safe_pass."\r\n\r\n"
+              . "Sign in here: ".$login_url."\r\n\r\n"
+              . "For your security, please change this password after your first sign-in.\r\n";
+
+        $html = '<p>Hello'.($safe_name!==''?' '.htmlspecialchars($safe_name,ENT_QUOTES,'UTF-8'):'').',</p>'
+              . '<p>A login account has been created for you in the Barangay System.</p>'
+              . '<p><strong>Username:</strong> '.htmlspecialchars($safe_user,ENT_QUOTES,'UTF-8').'<br>'
+              . '<strong>Temporary password:</strong> '.htmlspecialchars($safe_pass,ENT_QUOTES,'UTF-8').'</p>'
+              . '<p><a href="'.htmlspecialchars($login_url,ENT_QUOTES,'UTF-8').'">Sign in to the Barangay System</a></p>'
+              . '<p>For your security, please change this password after your first sign-in.</p>';
+
+        $from_name = $c['from_name']!==''?$c['from_name']:'Barangay System';
+        $h = 'From: "'.addcslashes($from_name,'"\\').'" <'.$c['from'].">\r\n";
+        $h .= 'To: <'.$to_email.">\r\n".'Subject: '.$subject."\r\nMIME-Version: 1.0\r\n";
+        $h .= 'Content-Type: multipart/alternative; boundary="'.$b."\"\r\n";
+        $body = "--".$b."\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n".$text."\r\n";
+        $body .= "--".$b."\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n".$html."\r\n--".$b."--\r\n.";
+        fwrite($fp,$h."\r\n".$body."\r\n");
+        $ok = ((int)substr(mail_smtp_readline($fp),0,3)===250);
+        if (!$ok) { error_log('[mailer] credentials DATA rejected.'); }
+        @fwrite($fp,"QUIT\r\n"); fclose($fp); return $ok;
+    }
+}
+
 
 
 

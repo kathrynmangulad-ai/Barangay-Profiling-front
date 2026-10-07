@@ -225,10 +225,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             log_access('resident_added', 'resident', $resident_id);
 
             if ($make_account) {
-                // Stash the one-time credentials to show on the next screen.
-                flash('ok', 'Resident added and a login account was created. '
-                    . 'Username: ' . $username . '  -  Temporary password: ' . $generated_password
-                    . '  (shown once - please give it to the resident).');
+                // Try to email the credentials to the resident; fall back to
+                // showing them on screen if there's no email or the send fails.
+                $emailed = false;
+                if ($email_val !== null) {
+                    $full_name = trim($first_name . ' ' . $last_name);
+                    $emailed = mail_send_credentials($email_val, $full_name, $username, $generated_password);
+                }
+
+                if ($emailed) {
+                    flash('ok', 'Resident added and a login account was created. '
+                        . 'The username and temporary password were emailed to ' . $email_val . '.');
+                } else {
+                    // No email on file, email not configured, or send failed:
+                    // show the credentials once so the secretary can share them.
+                    $why = ($email_val === null)
+                        ? 'No email on file, so'
+                        : 'The email could not be sent, so';
+                    flash('ok', 'Resident added and a login account was created. ' . $why
+                        . ' please share these manually - Username: ' . $username
+                        . '  |  Temporary password: ' . $generated_password . ' (shown once).');
+                }
             } else {
                 flash('ok', 'Resident added successfully.');
             }
