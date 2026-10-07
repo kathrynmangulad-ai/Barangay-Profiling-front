@@ -901,6 +901,9 @@ label > input[type="checkbox"] + span, label > input[type="radio"] + span { marg
 }
 .pw-reqs li[data-ok="true"] { color: #15803D; }
 .pw-reqs li[data-ok="true"]::before { border-color: var(--success); background: var(--success); }
+/* Not yet met (user has started typing): flag it red so it's obvious. */
+.pw-reqs li[data-ok="false"] { color: var(--danger); }
+.pw-reqs li[data-ok="false"]::before { border-color: var(--danger); background: transparent; }
 .pw-status { margin: 7px 0 0; font-size: 12.5px; min-height: 17px; }
 .pw-status[data-state="ok"] { color: #15803D; }
 .pw-status[data-state="bad"] { color: var(--danger); }

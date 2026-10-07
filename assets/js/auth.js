@@ -68,7 +68,12 @@
             items.forEach(function (li) {
                 var rule = RULES[li.getAttribute('data-req')];
                 var ok = rule ? rule(value) : true;
-                li.setAttribute('data-ok', ok ? 'true' : 'false');
+                if (!value) {
+                    // Field is empty: show a neutral (not-yet-evaluated) state.
+                    li.setAttribute('data-ok', 'none');
+                } else {
+                    li.setAttribute('data-ok', ok ? 'true' : 'false');
+                }
                 if (ok) { passed++; }
             });
 
