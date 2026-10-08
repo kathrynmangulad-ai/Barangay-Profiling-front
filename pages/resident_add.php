@@ -16,6 +16,13 @@ $page_crumb = 'New Resident';
 $error = '';
 $error_fields = [];
 
+// IP / 4Ps classification columns (added outside the base schema) — detect
+// whichever names exist (same candidates as the dashboard/list) so the form
+// and the save stay in step with the DB and never break on a missing column.
+$ip_col=null; $ip_int=false; $fp_col=null; $fp_int=false;
+foreach(['is_ip','is_indigenous','indigenous'] as $cand){ $qc=$conn->query("SHOW COLUMNS FROM residents LIKE '$cand'"); if($qc){ if($qc->num_rows>0){ $cf=$qc->fetch_assoc(); $ip_col=$cand; $ip_int=(bool)preg_match('/int/i',(string)$cf['Type']); $qc->free(); break; } $qc->free(); } }
+foreach(['is_4ps','is_fourps','fourps','pantawid'] as $cand){ $qc=$conn->query("SHOW COLUMNS FROM residents LIKE '$cand'"); if($qc){ if($qc->num_rows>0){ $cf=$qc->fetch_assoc(); $fp_col=$cand; $fp_int=(bool)preg_match('/int/i',(string)$cf['Type']); $qc->free(); break; } $qc->free(); } }
+
 $old = [
     'barangay_id'  => ($_SESSION['role'] === 'admin') ? 0 : (int)($_SESSION['barangay_id'] ?? 0),
     'username'     => '',
@@ -33,6 +40,8 @@ $old = [
     'email'        => '',
     'is_pwd'       => false,
     'is_student'   => false,
+    'is_ip'        => false,
+    'is_4ps'       => false,
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -60,6 +69,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
      
     $is_pwd       = isset($_POST['is_pwd']) ? 'Yes' : 'No';
     $is_student   = isset($_POST['is_student']) ? 'Yes' : 'No';
+    $is_ip_on     = isset($_POST['is_ip']);
+    $is_4ps_on    = isset($_POST['is_4ps']);
+    // Stored value matches the column type: enum/varchar get Yes/No, int gets 1/0.
+    $is_ip        = $is_ip_on ? ($ip_int ? 1 : 'Yes') : ($ip_int ? 0 : 'No');
+    $is_4ps       = $is_4ps_on ? ($fp_int ? 1 : 'Yes') : ($fp_int ? 0 : 'No');
     $birth_date   = ($birth_date !== '') ? $birth_date : null;
 
     // Validate + compute age from the birth date. A valid date must be exactly
@@ -101,6 +115,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'email'        => $email,
         'is_pwd'       => ($is_pwd === 'Yes'),
         'is_student'   => ($is_student === 'Yes'),
+        'is_ip'        => $is_ip_on,
+        'is_4ps'       => $is_4ps_on,
     ];
 
     $photo = null;
@@ -193,6 +209,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$stmt->execute()) { throw new RuntimeException('insert resident failed: ' . $stmt->error); }
             $resident_id = (int)$conn->insert_id;
             $stmt->close();
+
+            // Persist the optional IP / 4Ps classification (columns come from
+            // database/update.sql — skipped entirely when they don't exist).
+            if ($ip_col !== null || $fp_col !== null) {
+                $setSql = ''; $setTypes = ''; $setVals = [];
+                if ($ip_col !== null) { $setSql .= "`$ip_col`=?"; $setTypes .= $ip_int ? 'i' : 's'; $setVals[] = $is_ip; }
+                if ($fp_col !== null) { $setSql .= ($setSql !== '' ? ',' : '') . "`$fp_col`=?"; $setTypes .= $fp_int ? 'i' : 's'; $setVals[] = $is_4ps; }
+                $setVals[] = $resident_id;
+                $cs = $conn->prepare("UPDATE residents SET $setSql WHERE id=?");
+                if ($cs === false) { throw new RuntimeException('prepare classification failed: ' . $conn->error); }
+                $cs->bind_param($setTypes . 'i', ...$setVals);
+                if (!$cs->execute()) { throw new RuntimeException('save classification failed: ' . $cs->error); }
+                $cs->close();
+            }
 
             if ($make_account) {
                 // Auto-generate a password; it is shown once to the secretary.
@@ -379,6 +409,12 @@ include BASE_PATH . '/partials/header.php';
                 <span class="field-label">Classification</span>
                 <label><input type="checkbox" name="is_pwd" value="Yes"<?= $old['is_pwd'] ? ' checked' : '' ?>> Person with Disability (PWD)</label>
                 <label><input type="checkbox" name="is_student" value="Yes"<?= $old['is_student'] ? ' checked' : '' ?>> Student</label>
+                <?php if ($ip_col !== null): ?>
+                <label><input type="checkbox" name="is_ip" value="Yes"<?= $old['is_ip'] ? ' checked' : '' ?>> Indigenous People (IP)</label>
+                <?php endif; ?>
+                <?php if ($fp_col !== null): ?>
+                <label><input type="checkbox" name="is_4ps" value="Yes"<?= $old['is_4ps'] ? ' checked' : '' ?>> 4Ps Beneficiary</label>
+                <?php endif; ?>
             </div>
 
         </div>

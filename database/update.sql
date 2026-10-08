@@ -44,6 +44,10 @@ ALTER TABLE `residents`
   ADD COLUMN IF NOT EXISTS `email` varchar(255) DEFAULT NULL AFTER `contact_no`;
 ALTER TABLE `residents`
   ADD INDEX IF NOT EXISTS `idx_residents_deleted_at` (`deleted_at`);
+ALTER TABLE `residents`
+  ADD COLUMN IF NOT EXISTS `is_ip` enum('Yes','No') NOT NULL DEFAULT 'No' AFTER `is_student`;
+ALTER TABLE `residents`
+  ADD COLUMN IF NOT EXISTS `is_4ps` enum('Yes','No') NOT NULL DEFAULT 'No' AFTER `is_ip`;
 
 -- -----------------------------------------------------------------------------
 -- document_requests : workflow columns added over time

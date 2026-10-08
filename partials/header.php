@@ -134,6 +134,7 @@ if ($is_resident) {
         'MANAGEMENT' => [
             ['file' => 'pages/documents.php', 'label' => 'Document Requests',          'icon' => 'file-text'],
             ['file' => 'pages/blotters.php',  'label' => 'Blotter / Incident Records', 'icon' => 'clipboard'],
+            ['file' => 'pages/reports.php',   'label' => 'Yearly Reports',             'icon' => 'trending-up'],
         ],
     ];
     if ($is_admin) {

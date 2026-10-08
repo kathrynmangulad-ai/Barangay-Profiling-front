@@ -61,6 +61,22 @@ $t = $conn->query("SELECT DISTINCT document_type FROM document_requests
                     WHERE document_type <> '' ORDER BY document_type ASC");
 if ($t) { while ($x = $t->fetch_assoc()) { $types[] = $x['document_type']; } }
 
+/* Full history of this resident's filed requests (moved here from
+ * resident_profile.php so the request page shows form + history together). */
+$myDocs = [];
+if ($rid !== null) {
+    $d = $conn->prepare(
+        'SELECT id, document_type, purpose, status, requested_at, released_at
+           FROM document_requests WHERE resident_id=? ORDER BY id DESC'
+    );
+    if ($d) {
+        $d->bind_param('i', $rid);
+        $d->execute();
+        $myDocs = $d->get_result()->fetch_all(MYSQLI_ASSOC);
+        $d->close();
+    }
+}
+
 $page_title = 'Request Document';
 include BASE_PATH . '/partials/header.php';
 ?>
@@ -77,7 +93,17 @@ include BASE_PATH . '/partials/header.php';
 
 
 
-<div class="card">
+<div class="section-head section-head--tight">
+    <div>
+        <h2>My Document Requests</h2>
+        <p>Every request you have filed</p>
+    </div>
+    <div>
+        <button class="btn" type="button" id="docNewBtn">+ New Request</button>
+    </div>
+</div>
+
+<div class="card" id="docFormCard"<?= $error !== '' ? '' : ' hidden' ?>>
     <form method="post">
         <?= csrf_field() ?>
 
@@ -113,5 +139,39 @@ include BASE_PATH . '/partials/header.php';
         </div>
     </form>
 </div>
+<script>
+document.getElementById('docNewBtn').addEventListener('click', function () {
+    var card = document.getElementById('docFormCard');
+    card.hidden = !card.hidden;
+});
+</script>
+
+<?php if ($myDocs): ?>
+    <div class="card table-wrap">
+        <table>
+            <tr><th>Type</th><th>Purpose</th><th>Status</th><th>Requested</th><th>Action</th></tr>
+            <?php foreach ($myDocs as $d): ?>
+            <tr>
+                <td><?= e($d['document_type']) ?></td>
+                <td><?= e($d['purpose']) ?></td>
+                <td><span class="badge"><?= e($d['status']) ?></span></td>
+                <td><?= e($d['requested_at'] ? date('M j, Y', strtotime($d['requested_at'])) : '-') ?></td>
+                <td>
+                    <?php if ($d['status'] === 'Released'): ?>
+                        <a class="btn btn--ghost" href="<?= e(url('pages/document_print.php?id=' . (int)$d['id'])) ?>"
+                           target="_blank" rel="noopener">View / Print</a>
+                    <?php else: ?>
+                        <span class="muted-meta">Available once released</span>
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+        </table>
+    </div>
+<?php else: ?>
+    <div class="card">
+        <p>You have not filed any document requests yet.</p>
+    </div>
+<?php endif; ?>
 
 <?php include BASE_PATH . '/partials/footer.php'; ?>

@@ -34,19 +34,9 @@ if ($profile) { $account_email = (string)($profile['account_email'] ?? ''); }
 
 $rid = $profile['id'] ?? null;
 
-$myDocs  = [];
 $myBlots = [];
 
 if ($rid !== null) {
-    $d = $conn->prepare(
-        'SELECT id, document_type, purpose, status, requested_at, released_at
-           FROM document_requests WHERE resident_id=? ORDER BY id DESC'
-    );
-    $d->bind_param('i', $rid);
-    $d->execute();
-    $myDocs = $d->get_result()->fetch_all(MYSQLI_ASSOC);
-    $d->close();
-
     $b = $conn->prepare(
         'SELECT id, blotter_no, incident_type, place_of_incident, status, report_datetime
            FROM blotter_records WHERE resident_id=? ORDER BY id DESC'
@@ -56,6 +46,14 @@ if ($rid !== null) {
     $myBlots = $b->get_result()->fetch_all(MYSQLI_ASSOC);
     $b->close();
 }
+
+/* IP / 4Ps classification columns (added outside the base schema) — detect
+ * whichever names exist (same candidates as the staff pages) so the display
+ * never breaks on a missing column. The profile query is SELECT r.* so a
+ * detected column is already present in $profile. */
+$ip_col = null; $ip_int = false; $fp_col = null; $fp_int = false;
+foreach (['is_ip','is_indigenous','indigenous'] as $cand) { $qc = $conn->query("SHOW COLUMNS FROM residents LIKE '$cand'"); if ($qc) { if ($qc->num_rows > 0) { $cf = $qc->fetch_assoc(); $ip_col = $cand; $ip_int = (bool)preg_match('/int/i', (string)$cf['Type']); $qc->free(); break; } $qc->free(); } }
+foreach (['is_4ps','is_fourps','fourps','pantawid'] as $cand) { $qc = $conn->query("SHOW COLUMNS FROM residents LIKE '$cand'"); if ($qc) { if ($qc->num_rows > 0) { $cf = $qc->fetch_assoc(); $fp_col = $cand; $fp_int = (bool)preg_match('/int/i', (string)$cf['Type']); $qc->free(); break; } $qc->free(); } }
 
  
 $ageKnown = ((int)($profile['age'] ?? 0)) > 0;
@@ -127,17 +125,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $profile) {
 
         $u = $conn->prepare(
             'UPDATE residents
-                SET contact_no = ?, occupation = ?, civil_status = ?, address = ?, photo = ?
+                SET contact_no = ?, occupation = ?, civil_status = ?, address = ?, photo = ?,
+                    is_pwd = ?, is_student = ?
               WHERE user_id = ?'
         );
         
 
 
 
-        $u->bind_param('sssssi', $contact_no, $occupation, $civil_status, $address, $photo, $uid);
+        $u_pwd     = isset($_POST['is_pwd']) ? 'Yes' : 'No';
+        $u_student = isset($_POST['is_student']) ? 'Yes' : 'No';
+        $u->bind_param('sssssssi', $contact_no, $occupation, $civil_status, $address, $photo, $u_pwd, $u_student, $uid);
 
         if ($u->execute()) {
             $u->close();
+
+            // IP / 4Ps columns live outside the base schema — write them only
+            // when the detected column exists on this install.
+            // IP / 4Ps columns live outside the base schema — write them only
+            // when the detected column exists on this install.
+            $u_ip_val = isset($_POST['is_ip']) ? ($ip_int ? 1 : 'Yes') : ($ip_int ? 0 : 'No');
+            $u_fp_val = isset($_POST['is_4ps']) ? ($fp_int ? 1 : 'Yes') : ($fp_int ? 0 : 'No');
+            if ($ip_col !== null) {
+                $uv = $u_ip_val;
+                if ($cs = $conn->prepare("UPDATE residents SET `$ip_col`=? WHERE user_id=? AND deleted_at IS NULL")) {
+                    $cs->bind_param(($ip_int ? 'i' : 's') . 'i', $uv, $uid);
+                    $cs->execute();
+                    $cs->close();
+                }
+            }
+            if ($fp_col !== null) {
+                $uv = $u_fp_val;
+                if ($cs = $conn->prepare("UPDATE residents SET `$fp_col`=? WHERE user_id=? AND deleted_at IS NULL")) {
+                    $cs->bind_param(($fp_int ? 'i' : 's') . 'i', $uv, $uid);
+                    $cs->execute();
+                    $cs->close();
+                }
+            }
+
+            // IP / 4Ps columns live outside the base schema — write them only
+            // when the detected column exists on this install.
+            $u_ip_on  = isset($_POST['is_ip']);
+            $u_fp_on  = isset($_POST['is_4ps']);
+            $u_ip_val = $u_ip_on ? ($ip_int ? 1 : 'Yes') : ($ip_int ? 0 : 'No');
+            $u_fp_val = $u_fp_on ? ($fp_int ? 1 : 'Yes') : ($fp_int ? 0 : 'No');
+            if ($ip_col !== null || $fp_col !== null) {
+                $setSql = ''; $setTypes = ''; $setVals = [];
+                if ($ip_col !== null) { $setSql .= "`$ip_col`=?"; $setTypes .= $ip_int ? 'i' : 's'; $setVals[] = $u_ip_val; }
+                if ($fp_col !== null) { $setSql .= ($setSql !== '' ? ',' : '') . "`$fp_col`=?"; $setTypes .= $fp_int ? 'i' : 's'; $setVals[] = $u_fp_val; }
+                $setVals[] = $uid;
+                if ($cs = $conn->prepare("UPDATE residents SET $setSql WHERE user_id=? AND deleted_at IS NULL")) {
+                    $types = $setTypes . 'i';
+                    $cs->bind_param($types, ...$setVals);
+                    $cs->execute();
+                    $cs->close();
+                }
+            }
+
+            if (users_has_email_column($conn)) {
              
             if (users_has_email_column($conn)) {
                 $ue = $conn->prepare('UPDATE users SET email=? WHERE id=? LIMIT 1');
@@ -163,7 +208,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $profile) {
     $profile['address']      = $address;
 }
 
-
+}
 
 include BASE_PATH . '/partials/header.php';
 ?>
@@ -235,6 +280,17 @@ include BASE_PATH . '/partials/header.php';
                     <p class="field-hint">No photo on file yet. JPG, JPEG, PNG or GIF, up to 10MB.</p>
                 <?php endif; ?>
             </div>
+            <div>
+                <span class="field-label">Classification</span>
+                <label><input type="checkbox" name="is_pwd" value="Yes"<?= in_array($profile['is_pwd'] ?? '', ['Yes', '1', 1], true) ? ' checked' : '' ?>> Person with Disability (PWD)</label>
+                <label><input type="checkbox" name="is_student" value="Yes"<?= in_array($profile['is_student'] ?? '', ['Yes', '1', 1], true) ? ' checked' : '' ?>> Student</label>
+                <?php if ($ip_col !== null): ?>
+                <label><input type="checkbox" name="is_ip" value="Yes"<?= in_array($profile[$ip_col] ?? '', ['Yes', '1', 1], true) ? ' checked' : '' ?>> Indigenous People (IP)</label>
+                <?php endif; ?>
+                <?php if ($fp_col !== null): ?>
+                <label><input type="checkbox" name="is_4ps" value="Yes"<?= in_array($profile[$fp_col] ?? '', ['Yes', '1', 1], true) ? ' checked' : '' ?>> 4Ps Beneficiary</label>
+                <?php endif; ?>
+            </div>
         </div>
         <br>
         <button class="btn" type="submit">Save My Details</button>
@@ -266,75 +322,14 @@ include BASE_PATH . '/partials/header.php';
         <tr><td>Household No.</td><td><?= e($profile['household_no'] ?? '-') ?></td></tr>
         <tr><td>PWD</td><td><?= e($profile['is_pwd'] ?? '-') ?></td></tr>
         <tr><td>Student</td><td><?= e($profile['is_student'] ?? '-') ?></td></tr>
+        <tr><td>Indigenous People (IP)</td><td><?= e($ip_col !== null ? ($profile[$ip_col] ?? '-') : '-') ?></td></tr>
+        <tr><td>4Ps Beneficiary</td><td><?= e($fp_col !== null ? ($profile[$fp_col] ?? '-') : '-') ?></td></tr>
     </table>
 </div>
 
 <?php if (!$ageKnown): ?>
     <div class="alert" role="status">
         Some details on your profile are still blank. Your barangay secretary will verify and complete them.
-    </div>
-<?php endif; ?>
-
-<div class="section-head">
-    <div>
-        <h2>My Document Requests</h2>
-        <p>Every request you have filed</p>
-    </div>
-</div>
-
-<?php if ($myDocs): ?>
-    <div class="card table-wrap">
-        <table>
-            <tr><th>Type</th><th>Purpose</th><th>Status</th><th>Requested</th><th>Action</th></tr>
-            <?php foreach ($myDocs as $d): ?>
-            <tr>
-                <td><?= e($d['document_type']) ?></td>
-                <td><?= e($d['purpose']) ?></td>
-                <td><span class="badge"><?= e($d['status']) ?></span></td>
-                <td><?= e($d['requested_at'] ? date('M j, Y', strtotime($d['requested_at'])) : '-') ?></td>
-                <td>
-                    <?php if ($d['status'] === 'Released'): ?>
-                        <a class="btn btn--ghost" href="<?= e(url('pages/document_print.php?id=' . (int)$d['id'])) ?>"
-                           target="_blank" rel="noopener">View / Print</a>
-                    <?php else: ?>
-                        <span class="muted-meta">Available once released</span>
-                    <?php endif; ?>
-                </td>
-            </tr>
-            <?php endforeach; ?>
-        </table>
-    </div>
-<?php else: ?>
-    <div class="card">
-        <p>You have not filed any document requests yet.</p>
-    </div>
-<?php endif; ?>
-
-<div class="section-head">
-    <div>
-        <h2>My Blotter Reports</h2>
-        <p>Every incident report you filed</p>
-    </div>
-</div>
-
-<?php if ($myBlots): ?>
-    <div class="card table-wrap">
-        <table>
-            <tr><th>Entry #</th><th>Incident</th><th>Place</th><th>Status</th><th>Reported</th></tr>
-            <?php foreach ($myBlots as $b): ?>
-            <tr>
-                <td><?= e($b['blotter_no']) ?></td>
-                <td><?= e($b['incident_type']) ?></td>
-                <td><?= e($b['place_of_incident']) ?></td>
-                <td><?= e($b['status']) ?></td>
-                <td><?= e($b['report_datetime'] ? date('M j, Y', strtotime($b['report_datetime'])) : '-') ?></td>
-            </tr>
-            <?php endforeach; ?>
-        </table>
-    </div>
-<?php else: ?>
-    <div class="card">
-        <p>You have not filed any blotter reports.</p>
     </div>
 <?php endif; ?>
 

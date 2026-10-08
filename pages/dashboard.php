@@ -260,6 +260,41 @@ $seniors   = $total_seniors;
 $pwdScoped = run_count($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND is_pwd IN ('Yes',1,'1')$resYear$scopeN", $yTypes, $yParams);
 $stuScoped = run_count($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND is_student IN ('Yes',1,'1')$resYear$scopeN", $yTypes, $yParams);
 
+/* IP (Indigenous People) and 4Ps flags live on residents, but the columns
+ * were added outside the base schema — detect whichever name exists (if any)
+ * so the cards never break the dashboard when neither column is present;
+ * the count then simply reads 0. */
+function resident_flag_col($conn, array $candidates) {
+    foreach ($candidates as $col) {
+        $c = $conn->query("SHOW COLUMNS FROM residents LIKE '" . $conn->real_escape_string($col) . "'");
+        if ($c) { $n = $c->num_rows; $c->free(); if ($n > 0) { return $col; } }
+    }
+    return null;
+}
+$ipCol     = resident_flag_col($conn, ['is_ip', 'is_indigenous', 'indigenous']);
+$fourpsCol = resident_flag_col($conn, ['is_4ps', 'is_fourps', 'fourps', 'pantawid']);
+
+$total_ip  = 0;
+$total_4ps = 0;
+if ($ipCol !== null)     { $total_ip  = run_count($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND `$ipCol` IN ('Yes',1,'1')$resYear$scopeN", $yTypes, $yParams); }
+if ($fourpsCol !== null) { $total_4ps = run_count($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND `$fourpsCol` IN ('Yes',1,'1')$resYear$scopeN", $yTypes, $yParams); }
+
+// Sparklines for the two new cards (neutral, no delta, when a column is missing).
+$ipMonthly = $ipCol !== null
+    ? spark_series($conn, "SELECT DATE_FORMAT(created_at,'%Y-%m') ym, COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND `$ipCol` IN ('Yes',1,'1')" . $scopeN . " GROUP BY ym", $scoped ? 'si' : 's', $scoped ? [$sparkStart, $bid] : [$sparkStart])
+    : [];
+$ipPrev = $ipCol !== null
+    ? spark_prev_total($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ? AND `$ipCol` IN ('Yes',1,'1')$scopeN", $scoped ? 'sii' : 'ss', $scoped ? [$prevStart, $sparkStart, $bid] : [$prevStart, $sparkStart])
+    : 0;
+$fpMonthly = $fourpsCol !== null
+    ? spark_series($conn, "SELECT DATE_FORMAT(created_at,'%Y-%m') ym, COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND `$fourpsCol` IN ('Yes',1,'1')" . $scopeN . " GROUP BY ym", $scoped ? 'si' : 's', $scoped ? [$sparkStart, $bid] : [$sparkStart])
+    : [];
+$fpPrev = $fourpsCol !== null
+    ? spark_prev_total($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ? AND `$fourpsCol` IN ('Yes',1,'1')$scopeN", $scoped ? 'sii' : 'ss', $scoped ? [$prevStart, $sparkStart, $bid] : [$prevStart, $sparkStart])
+    : 0;
+$sparkIp     = spark_build($ipMonthly, $sparkMonths, $total_ip, $ipPrev);
+$sparkFourps = spark_build($fpMonthly, $sparkMonths, $total_4ps, $fpPrev);
+
 /* Override the headline/population figures with the frozen snapshot when one
  * exists for this past year+scope. Trend charts stay live (illustrative). */
 if ($usingSnapshot) {
@@ -519,13 +554,11 @@ include BASE_PATH . '/partials/header.php';
             <?php if ($selYear !== $currentYear || ($isAdmin && $selBrgy > 0)): ?>
             <a class="btn btn--ghost" href="<?= e(url('pages/dashboard.php')) ?>">Reset</a>
             <?php endif; ?>
-            <?php if ($isAdmin): ?>
             <a class="btn btn--ghost" href="<?= e(url('admin/yearly_capture.php?year=' . (int)$selYear . '&token=' . csrf_token())) ?>"
-               data-confirm="Capture a frozen snapshot of <?= (int)$selYear ?> for every barangay? Re-running overwrites this year's snapshot."
+               data-confirm="Capture a frozen snapshot of <?= (int)$selYear ?> <?= $isAdmin ? 'for every barangay' : 'for your assigned barangay' ?>? Re-running overwrites this year's snapshot."
                data-confirm-title="Capture yearly snapshot">
                <?= icon('shield', 'ico ico--xs') ?> <?= isset($capturedYears[$selYear]) ? 'Re-capture' : 'Capture' ?> <?= (int)$selYear ?>
             </a>
-            <?php endif; ?>
         </div>
     </form>
 </div>
@@ -584,8 +617,10 @@ include BASE_PATH . '/partials/header.php';
         ['PWDs', $total_pwd, 'pwd', '#15803D', 'pages/residents.php', 'View residents'],
         ['Students', $total_students, 'students', '#6D28D9', 'pages/residents.php', 'View residents'],
         ['Seniors (60+)', $total_seniors, 'seniors', '#F59E0B', 'pages/residents.php', 'View residents'],
+        ['Indigenous People (IP)', $total_ip, 'ip', '#1D4ED8', 'pages/residents.php', 'View residents'],
+        ['4Ps Beneficiaries', $total_4ps, 'fourps', '#EA580C', 'pages/residents.php', 'View residents'],
     ];
-    $sparkMap = ['residents' => $sparkResidents, 'docs' => $sparkDocs, 'blotters' => $sparkBlotters, 'house' => $sparkHouse, 'pwd' => $sparkPwd, 'students' => $sparkStu, 'seniors' => $sparkSen];
+    $sparkMap = ['residents' => $sparkResidents, 'docs' => $sparkDocs, 'blotters' => $sparkBlotters, 'house' => $sparkHouse, 'pwd' => $sparkPwd, 'students' => $sparkStu, 'seniors' => $sparkSen, 'ip' => $sparkIp, 'fourps' => $sparkFourps];
     foreach ($glance as $g):
         [$gLabel, $gTotal, $gKey, $gColor, $gHref, $gLink] = $g;
         $sp = $sparkMap[$gKey];

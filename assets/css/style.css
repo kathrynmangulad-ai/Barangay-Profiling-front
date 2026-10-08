@@ -432,7 +432,7 @@ img.avatar {
 .kpi--violet .kpi__icon { background: #F1EAFE; color: #6D28D9; }
 
  
-.kpi-grid--glance { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.kpi-grid--glance { grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
 .kpi--glance { gap: 6px; padding: 16px 16px 14px; border-radius: 16px; }
 .kpi--glance .kpi__title { font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .kpi--glance .kpi__value { font-size: 32px; margin: 0; }
@@ -816,11 +816,14 @@ label > input[type="checkbox"], label > input[type="radio"] { margin-right: 6px;
 }
 
  
+.print-only { display: none; }
+
 @media print {
     .sidebar, .topbar, .toolbar, .no-print, .toast-stack, .confirm, .sidebar-backdrop { display: none !important; }
     .main, body.sidebar-collapsed .main { margin: 0; width: 100%; }
     .page { padding: 0; max-width: none; }
     body { background: #fff; }
+    .print-only { display: block !important; }
 }
 
  

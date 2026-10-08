@@ -54,6 +54,7 @@ if (isset($_GET['action'], $_GET['id'])) {
            LEFT JOIN barangays b ON b.id = u.barangay_id
           WHERE u.id = ? AND u.deleted_at IS NULL LIMIT 1"
     );
+    if ($t === false) { die("Prepare Error: " . $conn->error); }
     $t->bind_param('i', $uid);
     $t->execute();
     $target = $t->get_result()->fetch_assoc();
@@ -195,6 +196,7 @@ $pq = $conn->prepare(
       WHERE u.deleted_at IS NULL AND u.status = 'pending' AND u.role = 'resident' AND u.barangay_id = ?
    ORDER BY u.created_at ASC, u.id ASC"
 );
+if ($pq === false) { die("Prepare Error: " . $conn->error); }
 $pq->bind_param('i', $viewBrgy);
 $pq->execute();
 $pending = $pq->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -213,6 +215,7 @@ $aq = $conn->prepare(
       WHERE u.deleted_at IS NULL AND u.role = 'resident' AND u.barangay_id = ? AND u.status <> 'pending'
    ORDER BY u.created_at DESC, u.id DESC"
 );
+if ($aq === false) { die("Prepare Error: " . $conn->error); }
 $aq->bind_param('i', $viewBrgy);
 $aq->execute();
 $accounts = $aq->get_result()->fetch_all(MYSQLI_ASSOC);

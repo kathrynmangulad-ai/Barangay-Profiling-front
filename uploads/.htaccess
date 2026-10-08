@@ -3,11 +3,14 @@
 # a malicious file is uploaded with a disguised extension.
 
 # Turn off any PHP engine for this directory.
+# NOTE: use php_flag, never php_admin_flag - admin_* directives are only
+# allowed in the main server config. Having one here makes Apache reject this
+# whole .htaccess, causing a 500 for EVERY file under uploads/ (all images break).
 <IfModule mod_php7.c>
-    php_admin_flag engine off
+    php_flag engine off
 </IfModule>
 <IfModule mod_php.c>
-    php_admin_flag engine off
+    php_flag engine off
 </IfModule>
 
 # Strip handlers that would execute code, and force known image types to be

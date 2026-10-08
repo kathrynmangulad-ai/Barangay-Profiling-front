@@ -6,10 +6,21 @@ $s->bind_param('s',$name);$s->execute();}redirect(url('admin/barangays.php')); }
 $q=trim($_GET['q']??'');
 // Per-barangay totals. Soft-deleted residents (deleted_at NOT NULL) are
 // excluded from every aggregate so the numbers match the Residents page.
+// Seniors = age 60+, same rule as the dashboard. IP / 4Ps columns are
+// detected (they vary by install); when missing the cells show '-'.
+$ip_col=null; $fp_col=null;
+foreach(['is_ip','is_indigenous','indigenous'] as $cand){ $qc=$conn->query("SHOW COLUMNS FROM residents LIKE '$cand'"); if($qc){ if($qc->num_rows>0){ $ip_col=$cand; $qc->free(); break; } $qc->free(); } }
+foreach(['is_4ps','is_fourps','fourps','pantawid'] as $cand){ $qc=$conn->query("SHOW COLUMNS FROM residents LIKE '$cand'"); if($qc){ if($qc->num_rows>0){ $fp_col=$cand; $qc->free(); break; } $qc->free(); } }
+$has_ip=($ip_col!==null); $has_fp=($fp_col!==null);
+$ipAgg=$has_ip?"COUNT(CASE WHEN r.deleted_at IS NULL AND r.`$ip_col` IN ('Yes',1,'1') THEN r.id END) ip_total":"0 ip_total";
+$fpAgg=$has_fp?"COUNT(CASE WHEN r.deleted_at IS NULL AND r.`$fp_col` IN ('Yes',1,'1') THEN r.id END) fourps_total":"0 fourps_total";
 $select='SELECT b.*,
     COUNT(CASE WHEN r.deleted_at IS NULL THEN r.id END) residents,
     COUNT(DISTINCT CASE WHEN r.deleted_at IS NULL AND r.household_no IS NOT NULL AND r.household_no <> \'\' THEN r.household_no END) households,
-    COUNT(CASE WHEN r.deleted_at IS NULL AND r.is_student IN (\'Yes\',1,\'1\') THEN r.id END) students
+    COUNT(CASE WHEN r.deleted_at IS NULL AND r.is_student IN (\'Yes\',1,\'1\') THEN r.id END) students,
+    COUNT(CASE WHEN r.deleted_at IS NULL AND r.is_pwd IN (\'Yes\',1,\'1\') THEN r.id END) pwd,
+    COUNT(CASE WHEN r.deleted_at IS NULL AND r.age >= 60 THEN r.id END) seniors, '
+    .$fpAgg.', '.$ipAgg.'
    FROM barangays b
    LEFT JOIN residents r ON r.barangay_id=b.id';
 if($q!==''){ $s=$conn->prepare($select.' WHERE b.barangay_name LIKE ? GROUP BY b.id ORDER BY b.barangay_name');
@@ -24,10 +35,18 @@ $rows=$conn->query($select.' GROUP BY b.id ORDER BY b.barangay_name');
                 <th>Barangay</th>
                 <th>Residents</th>
                 <th>Households</th>
-                <th>Students</th></tr>
+                <th>Students</th>
+                <th>PWD</th>
+                <th>Seniors</th>
+                <th>4Ps</th>
+                <th>IP</th></tr>
                 <?php while($r=$rows->fetch_assoc()): ?>
                 <tr><td><?=$r['id']?></td><td><?=e($r['barangay_name'])?></td>
                 <td><?=(int)$r['residents']?></td>
                 <td><?=(int)$r['households']?></td>
-                <td><?=(int)$r['students']?></td></tr><?php endwhile; ?>
+                <td><?=(int)$r['students']?></td>
+                <td><?=(int)$r['pwd']?></td>
+                <td><?=(int)$r['seniors']?></td>
+                <td><?=($has_fp?(int)$r['fourps_total']:'-')?></td>
+                <td><?=($has_ip?(int)$r['ip_total']:'-')?></td></tr><?php endwhile; ?>
                 </table></div><?php include BASE_PATH . '/partials/footer.php';

@@ -6,6 +6,12 @@ $allowed_sorts=['name_az','name_za','newest','oldest'];
 if(!in_array($f_sort,$allowed_sorts,true)){ $f_sort='name_az'; }
 // The main list shows live residents; the Deleted view shows soft-deleted ones.
 $deleted_cond = $view_deleted ? 'r.deleted_at IS NOT NULL' : 'r.deleted_at IS NULL';
+// IP / 4Ps flags were added outside the base schema — detect whichever
+// column name exists (same candidates as the dashboard) so the table shows
+// the very data the dashboard counts and never breaks on a missing column.
+$ip_col=null; $fp_col=null;
+foreach(['is_ip','is_indigenous','indigenous'] as $cand){ $qc=$conn->query("SHOW COLUMNS FROM residents LIKE '$cand'"); if($qc){ if($qc->num_rows>0){ $ip_col=$cand; $qc->free(); break; } $qc->free(); } }
+foreach(['is_4ps','is_fourps','fourps','pantawid'] as $cand){ $qc=$conn->query("SHOW COLUMNS FROM residents LIKE '$cand'"); if($qc){ if($qc->num_rows>0){ $fp_col=$cand; $qc->free(); break; } $qc->free(); } }
 $sql="SELECT r.*,b.barangay_name,u.email AS account_email FROM residents r JOIN barangays b ON b.id=r.barangay_id LEFT JOIN users u ON u.id=r.user_id WHERE $deleted_cond"; $params=[];$types='';
 if($_SESSION['role']!=='admin'){ $sql.=" AND r.barangay_id=?";$types.='i';$params[]=$_SESSION['barangay_id']; }
 elseif($f_brgy>0){ $sql.=" AND r.barangay_id=?";$types.='i';$params[]=$f_brgy; }
@@ -120,6 +126,8 @@ include BASE_PATH . '/partials/header.php';?>
         <th>Civil Status</th>
         <th style="white-space:nowrap">PWD</th>
         <th style="white-space:nowrap">Students</th>
+        <th style="white-space:nowrap">IP</th>
+        <th style="white-space:nowrap">4Ps</th>
         <th style="white-space:nowrap">Households</th>
         <th>Occupation</th>
         <th style="white-space:nowrap">Contact</th>
@@ -165,6 +173,8 @@ include BASE_PATH . '/partials/header.php';?>
     <td><?= $cell($r['civil_status']) ?></td>
     <td style="white-space:nowrap"><?= $cell($r['is_pwd']) ?></td>
     <td style="white-space:nowrap"><?= $cell($r['is_student']) ?></td>
+    <td style="white-space:nowrap"><?= $cell($ip_col !== null ? ($r[$ip_col] ?? null) : null) ?></td>
+    <td style="white-space:nowrap"><?= $cell($fp_col !== null ? ($r[$fp_col] ?? null) : null) ?></td>
     <td style="white-space:nowrap"><?= $cell($r['household_no']) ?></td>
     <td><?= $cell($r['occupation']) ?></td>
     <td style="white-space:nowrap"><?= $cell($r['contact_no']) ?></td>

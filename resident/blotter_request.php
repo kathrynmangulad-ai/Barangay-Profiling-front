@@ -101,6 +101,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+/* Full history of this resident's filed reports (moved here from
+ * resident_profile.php so the file page shows form + history together). */
+$myBlots = [];
+if ($rid !== null) {
+    $b = $conn->prepare(
+        'SELECT id, blotter_no, incident_type, place_of_incident, status, report_datetime
+           FROM blotter_records WHERE resident_id=? ORDER BY id DESC'
+    );
+    if ($b) {
+        $b->bind_param('i', $rid);
+        $b->execute();
+        $myBlots = $b->get_result()->fetch_all(MYSQLI_ASSOC);
+        $b->close();
+    }
+}
+
 include BASE_PATH . '/partials/header.php';
 ?>
 
@@ -115,7 +131,17 @@ include BASE_PATH . '/partials/header.php';
 <?php endif; ?>
 
 
-<div class="card">
+<div class="section-head">
+    <div>
+        <h2>My Blotter Reports</h2>
+        <p>Every incident report you filed</p>
+    </div>
+    <div>
+        <button class="btn" type="button" id="blotterNewBtn">+ New Request</button>
+    </div>
+</div>
+
+<div class="card" id="blotterFormCard"<?= $error !== '' ? '' : ' hidden' ?>>
     <form method="post">
         <?= csrf_field() ?>
 
@@ -151,5 +177,32 @@ include BASE_PATH . '/partials/header.php';
         </div>
     </form>
 </div>
+<script>
+document.getElementById('blotterNewBtn').addEventListener('click', function () {
+    var card = document.getElementById('blotterFormCard');
+    card.hidden = !card.hidden;
+});
+</script>
+
+<?php if ($myBlots): ?>
+    <div class="card table-wrap">
+        <table>
+            <tr><th>Entry #</th><th>Incident</th><th>Place</th><th>Status</th><th>Reported</th></tr>
+            <?php foreach ($myBlots as $b): ?>
+            <tr>
+                <td><?= e($b['blotter_no']) ?></td>
+                <td><?= e($b['incident_type']) ?></td>
+                <td><?= e($b['place_of_incident']) ?></td>
+                <td><?= e($b['status']) ?></td>
+                <td><?= e($b['report_datetime'] ? date('M j, Y', strtotime($b['report_datetime'])) : '-') ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </table>
+    </div>
+<?php else: ?>
+    <div class="card">
+        <p>You have not filed any blotter reports.</p>
+    </div>
+<?php endif; ?>
 
 <?php include BASE_PATH . '/partials/footer.php'; ?>

@@ -3,21 +3,37 @@
 /**
  * Capture (finalize) a yearly snapshot of per-barangay figures.
  *
- * Admin-only. Recomputes the key figures for the chosen year straight from the
- * live tables and writes one row per barangay into barangay_yearly_stats, plus
- * a barangay_id = 0 "all barangays" aggregate row. Re-running for the same year
- * overwrites that year's snapshot (upsert), so an admin can refresh it until
- * they consider the year closed.
+ * Staff (admin or secretary). Recomputes the key figures for the chosen year
+ * straight from the live tables and writes one row per barangay into
+ * barangay_yearly_stats, plus a barangay_id = 0 "all barangays" aggregate row.
+ * Re-running for the same year overwrites that year's snapshot (upsert), so it
+ * can be refreshed until the year is considered closed.
+ *
+ * A secretary is limited to their own assigned barangay: only that barangay's
+ * row is written and the all-barangays aggregate is never touched.
  */
 
 require_once __DIR__ . '/../config/config.php';
-require_admin();
+require_staff();
 csrf_verify_get();
 
 $year = (int)($_GET['year'] ?? 0);
 $currentYear = (int)date('Y');
 if ($year < 2000 || $year > $currentYear) {
     die('Invalid year to capture.');
+}
+
+/*
+ * Admins capture every barangay plus the aggregate row. A secretary may only
+ * capture their assigned barangay, so $scopeBid pins the capture to it.
+ */
+$isCaptureAdmin = (($_SESSION['role'] ?? '') === 'admin');
+$scopeBid = null;
+if (!$isCaptureAdmin) {
+    $scopeBid = (int)($_SESSION['barangay_id'] ?? 0);
+    if ($scopeBid <= 0) {
+        die('No barangay is assigned to your account.');
+    }
 }
 
 /*
@@ -104,12 +120,18 @@ while ($row = $rs->fetch_assoc()) {
 }
 $st->close();
 
-// Build the barangay_id = 0 aggregate (sum across all barangays).
-$agg = $blank;
-foreach ($stats as $bid => $v) {
-    foreach ($blank as $k => $_) { $agg[$k] += (int)$v[$k]; }
+if ($scopeBid !== null) {
+    // Secretary: keep only the assigned barangay's row (zero-filled if the
+    // year has no records yet) and never touch the all-barangays aggregate.
+    $stats = [$scopeBid => ($stats[$scopeBid] ?? $blank)];
+} else {
+    // Admin: build the barangay_id = 0 aggregate (sum across all barangays).
+    $agg = $blank;
+    foreach ($stats as $bid => $v) {
+        foreach ($blank as $k => $_) { $agg[$k] += (int)$v[$k]; }
+    }
+    $stats[0] = $agg;
 }
-$stats[0] = $agg;
 
 // Upsert each row.
 $adminId = (int)$_SESSION['user_id'];
@@ -144,5 +166,6 @@ try {
 }
 
 log_access('yearly_stats_captured', 'year', $year);
-flash('ok', "Yearly snapshot for {$year} captured — " . (count($stats) - 1) . " barangay record(s) saved.");
+$savedRows = $isCaptureAdmin ? (count($stats) - 1) : count($stats);
+flash('ok', "Yearly snapshot for {$year} captured — " . $savedRows . " barangay record(s) saved.");
 redirect(url('pages/dashboard.php?year=' . $year . '&snap=1'));

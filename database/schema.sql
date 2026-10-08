@@ -85,6 +85,8 @@ CREATE TABLE `residents` (
   `household_no` varchar(50) DEFAULT NULL,
   `is_pwd` enum('Yes','No') NOT NULL DEFAULT 'No',
   `is_student` enum('Yes','No') NOT NULL DEFAULT 'No',
+  `is_ip` enum('Yes','No') NOT NULL DEFAULT 'No',
+  `is_4ps` enum('Yes','No') NOT NULL DEFAULT 'No',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `deleted_at` timestamp NULL DEFAULT NULL,
