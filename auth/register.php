@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/mailer.php';
 if (is_logged_in()) { redirect(role_home($_SESSION['role'] ?? '')); }
 
 $error = '';
-$old   = ['first_name' => '', 'last_name' => '', 'middle_name' => '', 'username' => '', 'email' => '', 'barangay_id' => 0];
+$old   = ['first_name' => '', 'last_name' => '', 'middle_name' => '', 'username' => '', 'email' => '', 'barangay_id' => 0, 'household_no' => ''];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf();
@@ -18,8 +18,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $barangay_id = (int)($_POST['barangay_id'] ?? 0);
     $password    = (string)($_POST['password'] ?? '');
     $confirm     = (string)($_POST['confirm_password'] ?? '');
+    // Optional: the resident types their household number to be bound as a
+    // MEMBER of an existing household. Headship is never granted from this
+    // public form - new households are created only by the barangay office.
+    $household_no = trim($_POST['household_no'] ?? '');
 
-    $old = ['first_name' => $first_name, 'last_name' => $last_name, 'middle_name' => $middle_name, 'username' => $username, 'email' => $email, 'barangay_id' => $barangay_id];
+    $old = ['first_name' => $first_name, 'last_name' => $last_name, 'middle_name' => $middle_name, 'username' => $username, 'email' => $email, 'barangay_id' => $barangay_id, 'household_no' => $household_no];
 
     if ($first_name === '' || $last_name === '' || $username === '' || $email === '' || $barangay_id <= 0 || $password === '' || $confirm === '') {
         $error = 'Please complete all required fields.';
@@ -60,7 +64,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $taken = (bool)$dup->get_result()->fetch_assoc();
             $dup->close();
 
-            if ($taken) {
+            // Optional household number: must exist in the SELECTED barangay
+            // (never soft-deleted) before we bind the new resident as a member.
+            $hh_id    = 0;
+            $hh_error = '';
+            if ($household_no !== '') {
+                if (strlen($household_no) > 50) {
+                    $hh_error = 'Household number is too long (max 50 characters).';
+                } else {
+                    $hs = $conn->prepare('SELECT id FROM households WHERE barangay_id = ? AND household_no = ? AND deleted_at IS NULL LIMIT 1');
+                    $hs->bind_param('is', $barangay_id, $household_no);
+                    $hs->execute();
+                    $hhRow = $hs->get_result()->fetch_assoc();
+                    $hs->close();
+                    if ($hhRow) {
+                        $hh_id = (int)$hhRow['id'];
+                    } else {
+                        $hh_error = 'Household number "' . $household_no . '" was not found in the selected barangay. '
+                                  . 'Please double-check it with your barangay office, or leave the field blank.';
+                    }
+                }
+            }
+
+            if ($hh_error !== '') {
+                $error = $hh_error;
+            } elseif ($taken) {
                 $error = 'That username is already taken. Please choose another.';
 
             } else {
@@ -137,6 +165,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
 
                     $age = 0;
+                    // Self-registered residents start with household_id NULL;
+                    // when a valid household number was typed it is bound as a
+                    // plain member below (never head). Anything left unassigned
+                    // is bound later by the secretary via Residents > Edit.
                     $rs  = $conn->prepare(
                         'INSERT INTO residents
                             (barangay_id, last_name, first_name, middle_name, age, is_pwd, is_student, user_id)
@@ -148,6 +180,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $rs->close();
 
                     if (!$okRes) { throw new RuntimeException('resident insert failed'); }
+                    $resident_id = (int)$conn->insert_id;
+
+                    // Bind the new resident to the household they typed -
+                    // as a plain member, atomically with the registration.
+                    if ($hh_id > 0) {
+                        household_assign($conn, $resident_id, $hh_id);
+                    }
 
                     $conn->commit();
 
@@ -248,6 +287,15 @@ include BASE_PATH . '/partials/auth_top.php';
             <?php endwhile; ?>
         </select>
         <p class="field-hint" id="barangay-hint">Your administrator will verify this before approving your account.</p>
+    </div>
+
+    <div class="field">
+        <label for="household_no">Household Number (optional)</label>
+        <input id="household_no" type="text" name="household_no" maxlength="50"
+               autocomplete="off" value="<?= e($old['household_no']) ?>"
+               placeholder="e.g. HH-0007" aria-describedby="household-hint"
+               <?= $error !== '' ? 'aria-invalid="true"' : '' ?>>
+        <p class="field-hint" id="household-hint">Ask a family member or your barangay office for your household number. Leave it blank if you don't have one &mdash; your secretary can assign you to a household later.</p>
     </div>
 
     <div class="field">

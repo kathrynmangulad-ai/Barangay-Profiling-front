@@ -129,6 +129,7 @@ if ($is_resident) {
         'MAIN' => [
             ['file' => 'pages/dashboard.php',    'label' => 'Dashboard',    'icon' => 'home'],
             ['file' => 'pages/residents.php',    'label' => 'Residents',    'icon' => 'users'],
+            ['file' => 'pages/households.php',   'label' => 'Households',   'icon' => 'house'],
             ['file' => 'pages/resident_add.php', 'label' => 'New Resident', 'icon' => 'user-plus'],
         ],
         'MANAGEMENT' => [

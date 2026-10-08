@@ -13,7 +13,7 @@ if ($id <= 0) {
 
 // Look the row up among the soft-deleted residents so we can check barangay
 // access before restoring it.
-$chk = $conn->prepare("SELECT barangay_id FROM residents WHERE id = ? AND deleted_at IS NOT NULL LIMIT 1");
+$chk = $conn->prepare("SELECT barangay_id, household_id FROM residents WHERE id = ? AND deleted_at IS NOT NULL LIMIT 1");
 $chk->bind_param("i", $id);
 $chk->execute();
 $row = $chk->get_result()->fetch_assoc();
@@ -25,8 +25,15 @@ if (!$row) {
 require_barangay_access($row['barangay_id'], 'resident', $id);
 
 // Restore: clear the deletion stamp so the resident shows up in the live list.
+// In the same transaction the household is revived when it was retired after
+// its last member was removed, so the household count stays correct. The head
+// pointer was never cleared on delete, so a restored head is head again unless
+// headship was reassigned in the meantime.
+$household_id = (int)($row['household_id'] ?? 0);
+$conn->begin_transaction();
 $stmt = $conn->prepare("UPDATE residents SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL");
 if (!$stmt) {
+    $conn->rollback();
     http_response_code(500);
     die('Restore failed: could not prepare statement &mdash; ' . e($conn->error));
 }
@@ -35,11 +42,17 @@ $ok = $stmt->execute();
 $err = $conn->error;
 $stmt->close();
 
+if ($ok && $household_id > 0) {
+    household_revive($conn, $household_id);
+}
+
 if (!$ok) {
+    $conn->rollback();
     log_access('resident_restore_failed', 'resident', $id, 'denied');
     http_response_code(500);
     die('Restore failed &mdash; ' . e($err));
 }
+$conn->commit();
 
 log_access('resident_restored', 'resident', $id);
 header("Location: " . url('pages/residents.php?view=deleted&restored=1'));

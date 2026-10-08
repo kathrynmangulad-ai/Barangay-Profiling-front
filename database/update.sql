@@ -36,6 +36,27 @@ ALTER TABLE `users`
   ADD INDEX IF NOT EXISTS `idx_users_deleted_at` (`deleted_at`);
 
 -- -----------------------------------------------------------------------------
+-- households : proper household registry (one row per household, with a head of
+-- the family). residents.household_id is the link that binds each resident to
+-- their household; all household counts are built on this table.
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `households` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `barangay_id` int(11) NOT NULL,
+  `household_no` varchar(50) NOT NULL,
+  `head_resident_id` int(11) DEFAULT NULL,
+  `purok` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `deleted_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_households_brgy_no` (`barangay_id`,`household_no`),
+  KEY `idx_households_barangay` (`barangay_id`),
+  KEY `idx_households_head` (`head_resident_id`),
+  CONSTRAINT `fk_households_barangay` FOREIGN KEY (`barangay_id`) REFERENCES `barangays` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
 -- residents : soft delete + supporting index
 -- -----------------------------------------------------------------------------
 ALTER TABLE `residents`
@@ -43,11 +64,66 @@ ALTER TABLE `residents`
 ALTER TABLE `residents`
   ADD COLUMN IF NOT EXISTS `email` varchar(255) DEFAULT NULL AFTER `contact_no`;
 ALTER TABLE `residents`
+  ADD COLUMN IF NOT EXISTS `household_id` int(11) DEFAULT NULL AFTER `address`;
+ALTER TABLE `residents`
   ADD INDEX IF NOT EXISTS `idx_residents_deleted_at` (`deleted_at`);
 ALTER TABLE `residents`
   ADD COLUMN IF NOT EXISTS `is_ip` enum('Yes','No') NOT NULL DEFAULT 'No' AFTER `is_student`;
 ALTER TABLE `residents`
   ADD COLUMN IF NOT EXISTS `is_4ps` enum('Yes','No') NOT NULL DEFAULT 'No' AFTER `is_ip`;
+ALTER TABLE `residents`
+  ADD INDEX IF NOT EXISTS `idx_residents_household` (`household_id`);
+
+-- -----------------------------------------------------------------------------
+-- households backfill (existing data only; safe to re-run).
+--
+-- 1) Create one household per distinct (barangay_id, household_no) found on
+--    live residents. created_at = earliest member's registration date so yearly
+--    snapshots keep counting each household in the year it actually started.
+-- 2) Link each resident to their household. Guarded so a re-run never
+--    re-links a resident that was deliberately unassigned after the migration.
+-- 3) Pick a provisional head per household: prefer adults, then the oldest,
+--    then the earliest registered. The secretary can correct this any time.
+-- -----------------------------------------------------------------------------
+SET SESSION group_concat_max_len = 1000000;
+
+INSERT IGNORE INTO `households` (`barangay_id`, `household_no`, `purok`, `created_at`)
+SELECT r.`barangay_id`, TRIM(r.`household_no`), MIN(r.`address`), MIN(r.`created_at`)
+  FROM `residents` r
+ WHERE r.`deleted_at` IS NULL
+   AND r.`household_no` IS NOT NULL
+   AND TRIM(r.`household_no`) <> ''
+ GROUP BY r.`barangay_id`, TRIM(r.`household_no`);
+
+UPDATE `residents` r
+  JOIN `households` h
+    ON h.`barangay_id` = r.`barangay_id`
+   AND h.`household_no` = TRIM(r.`household_no`)
+   SET r.`household_id` = h.`id`
+ WHERE r.`deleted_at` IS NULL
+   AND r.`household_id` IS NULL
+   AND r.`household_no` IS NOT NULL
+   AND TRIM(r.`household_no`) <> ''
+   AND NOT EXISTS (
+       SELECT 1 FROM (
+           SELECT `household_id` FROM `residents`
+            WHERE `deleted_at` IS NULL AND `household_id` IS NOT NULL
+       ) m WHERE m.`household_id` = h.`id`
+   );
+
+UPDATE `households` h
+  JOIN (
+        SELECT r.`household_id`,
+               SUBSTRING_INDEX(
+                   GROUP_CONCAT(r.`id` ORDER BY (r.`age` >= 18) DESC, r.`age` DESC, r.`created_at` ASC, r.`id` ASC),
+                   ',', 1) AS head_id
+          FROM `residents` r
+         WHERE r.`deleted_at` IS NULL AND r.`household_id` IS NOT NULL
+         GROUP BY r.`household_id`
+       ) m ON m.`household_id` = h.`id`
+   SET h.`head_resident_id` = m.`head_id`
+ WHERE h.`head_resident_id` IS NULL;
+
 
 -- -----------------------------------------------------------------------------
 -- document_requests : workflow columns added over time

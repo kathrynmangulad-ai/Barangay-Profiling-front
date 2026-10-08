@@ -36,7 +36,10 @@ $old = [
     'occupation'   => '',
     'contact_no'   => '',
     'address'      => '',
-    'household_no' => '',
+    'household_mode' => 'new',
+    'household_id'   => 0,
+    'household_no'   => '',
+    'is_head'      => false,
     'email'        => '',
     'is_pwd'       => false,
     'is_student'   => false,
@@ -62,7 +65,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $occupation   = trim($_POST['occupation'] ?? '');
     $contact_no   = trim($_POST['contact_no'] ?? '');
     $address      = trim($_POST['address'] ?? '');
-    $household_no = trim($_POST['household_no'] ?? '');
+    // Household binding: new (create + this resident becomes head), existing
+    // (join; headship only when the household has no living head), none.
+    $household_mode = trim($_POST['household_mode'] ?? 'new');
+    $hh_form_id     = (int)($_POST['household_id'] ?? 0);
+    $household_no   = trim($_POST['household_no'] ?? ''); // only used when mode = new
+    $is_head        = isset($_POST['is_head']);           // only used when mode = existing
+    if (!in_array($household_mode, ['new', 'existing', 'none'], true)) { $household_mode = 'new'; }
     
 
     $email = trim($_POST['email'] ?? '');
@@ -111,7 +120,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'occupation'   => $occupation,
         'contact_no'   => $contact_no,
         'address'      => $address,
-        'household_no' => $household_no,
+        'household_mode' => $household_mode,
+        'household_id'   => $hh_form_id,
+        'household_no'   => $household_no,
+        'is_head'      => $is_head,
         'email'        => $email,
         'is_pwd'       => ($is_pwd === 'Yes'),
         'is_student'   => ($is_student === 'Yes'),
@@ -151,6 +163,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($error === '' && $email !== '' && (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255)) {
         $error = 'Please enter a valid email address.';
         $error_fields = ['email'];
+    }
+
+    /* --- Household binding -------------------------------------------------
+     * Every resident is bound to at most one household at registration:
+     *   new      -> create a household (auto number when blank) and register
+     *              this resident as its head;
+     *   existing -> join a household in the SAME barangay; headship is only
+     *              granted while that household has no living head;
+     *   none     -> leave unassigned (the secretary assigns later via Edit).
+     * The final headship check also runs inside the transaction below.
+     */
+    $new_household_no = null;
+    if ($error === '' && $household_mode === 'existing') {
+        if ($hh_form_id <= 0) {
+            $error = 'Please choose the household to join.';
+            $error_fields[] = 'household_id';
+        } else {
+            $hs = $conn->prepare('SELECT barangay_id, head_resident_id, deleted_at FROM households WHERE id = ? LIMIT 1');
+            $hs->bind_param('i', $hh_form_id);
+            $hs->execute();
+            $hh_row = $hs->get_result()->fetch_assoc();
+            $hs->close();
+            if (!$hh_row || $hh_row['deleted_at'] !== null) {
+                $error = 'The selected household no longer exists. Please refresh and pick another.';
+                $error_fields[] = 'household_id';
+            } elseif ((int)$hh_row['barangay_id'] !== (int)$barangay_id) {
+                $error = 'The selected household belongs to a different barangay.';
+                $error_fields[] = 'household_id';
+            } elseif ($is_head) {
+                // Friendly pre-check for the single-head rule (re-checked in the transaction).
+                $hh_live = household_fetch($conn, $hh_form_id);
+                $head = (int)($hh_row['head_resident_id'] ?? 0);
+                $vacant = ($head === 0) || !$hh_live || (int)$hh_live['head_live'] === 0;
+                if (!$vacant) {
+                    $error = 'That household already has a head of the family. '
+                           . 'Uncheck "Head of this household", or transfer headship from the resident\'s edit page.';
+                    $error_fields[] = 'is_head';
+                }
+            }
+        }
+    } elseif ($error === '' && $household_mode === 'new') {
+        if ($household_no !== '') {
+            if (strlen($household_no) > 50) {
+                $error = 'Household number is too long (max 50 characters).';
+                $error_fields[] = 'household_no';
+            } else {
+                $hs = $conn->prepare('SELECT id FROM households WHERE barangay_id = ? AND household_no = ? LIMIT 1');
+                $hs->bind_param('is', $barangay_id, $household_no);
+                $hs->execute();
+                $dup = (bool)$hs->get_result()->fetch_assoc();
+                $hs->close();
+                if ($dup) {
+                    $error = 'Household number "' . $household_no . '" already exists in this barangay. '
+                           . 'Leave it blank to auto-generate the next number.';
+                    $error_fields[] = 'household_no';
+                }
+            }
+        } else {
+            $new_household_no = household_next_no($conn, $barangay_id);
+        }
     }
 
     // Email is stored on the resident profile as a contact detail (Option A).
@@ -196,15 +268,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $conn->prepare(
                 "INSERT INTO residents
                  (barangay_id, last_name, first_name, middle_name, sex, age, birth_date,
-                  civil_status, occupation, contact_no, email, address, photo, is_pwd, is_student, household_no)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                  civil_status, occupation, contact_no, email, address, photo, is_pwd, is_student)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             );
             if ($stmt === false) { throw new RuntimeException('prepare residents failed: ' . $conn->error); }
             $stmt->bind_param(
-                'issssissssssssss',
+                'issssisssssssss',
                 $barangay_id, $last_name, $first_name, $middle_name, $sex, $age, $birth_date,
                 $civil_status, $occupation, $contact_no, $email_val, $address, $photo,
-                $is_pwd, $is_student, $household_no
+                $is_pwd, $is_student
             );
             if (!$stmt->execute()) { throw new RuntimeException('insert resident failed: ' . $stmt->error); }
             $resident_id = (int)$conn->insert_id;
@@ -222,6 +294,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $cs->bind_param($setTypes . 'i', ...$setVals);
                 if (!$cs->execute()) { throw new RuntimeException('save classification failed: ' . $cs->error); }
                 $cs->close();
+            }
+            // Bind the resident to their household inside the same transaction:
+            // a new household gets this resident as its head; an existing one is
+            // joined as a plain member unless headship was requested (single-head
+            // rule re-checked here so two people can never claim the same post).
+            if ($household_mode === 'new') {
+                $num = ($household_no !== '') ? $household_no : (string)$new_household_no;
+                $new_hh_id = household_create($conn, $barangay_id, $num, $address);
+                household_assign($conn, $resident_id, $new_hh_id);
+                if (!household_claim_head($conn, $new_hh_id, $resident_id)) {
+                    throw new RuntimeException('could not register the head of the new household');
+                }
+            } elseif ($household_mode === 'existing') {
+                household_assign($conn, $resident_id, $hh_form_id);
+                if ($is_head && !household_claim_head($conn, $hh_form_id, $resident_id)) {
+                    throw new RuntimeException('that household already has a living head - uncheck "Head of this household" or transfer headship first');
+                }
             }
 
             if ($make_account) {
@@ -290,6 +379,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $page_scripts = ['assets/js/resident_age.js'];
 
 $barangays = $conn->query("SELECT * FROM barangays ORDER BY barangay_name");
+
+// Household choices for the "Join an existing household" mode. Admins see every
+// barangay's households (grouped in the select); a secretary sees only theirs.
+// On a fresh (GET) form, pre-fill the next household number for the secretary.
+$hh_groups = [];
+if ($_SESSION['role'] === 'admin') {
+    $bs = $conn->query('SELECT id, barangay_name FROM barangays ORDER BY barangay_name');
+    while ($bs && $b = $bs->fetch_assoc()) {
+        $hh_groups[(int)$b['id']] = ['name' => $b['barangay_name'], 'items' => households_options($conn, (int)$b['id'])];
+    }
+} else {
+    $ownBid  = (int)($_SESSION['barangay_id'] ?? 0);
+    $ownName = (string)($_SESSION['barangay_name'] ?? 'My Barangay');
+    if ($hn = $conn->prepare('SELECT barangay_name FROM barangays WHERE id = ? LIMIT 1')) {
+        $hn->bind_param('i', $ownBid);
+        $hn->execute();
+        $hr = $hn->get_result()->fetch_assoc();
+        $hn->close();
+        if ($hr) { $ownName = $hr['barangay_name']; }
+    }
+    if ($ownBid > 0) {
+        $hh_groups[$ownBid] = ['name' => $ownName, 'items' => households_options($conn, $ownBid)];
+    }
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $old['household_no'] === '') {
+        $old['household_no'] = household_next_no($conn, $ownBid);
+    }
+}
+
 include BASE_PATH . '/partials/header.php';
 ?>
 
@@ -300,7 +417,7 @@ include BASE_PATH . '/partials/header.php';
 <?php endif; ?>
 
 <div class="card">
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" id="residentForm" enctype="multipart/form-data">
         <?= csrf_field() ?>
         <div class="form-grid">
 
@@ -405,8 +522,37 @@ include BASE_PATH . '/partials/header.php';
             </div>
 
             <div>
-                <label for="household_no">Household Number</label>
-                <input id="household_no" name="household_no" value="<?= e($old['household_no']) ?>">
+                <span class="field-label">Household</span>
+                <div style="display:grid;gap:6px">
+                    <label><input type="radio" name="household_mode" value="new"<?= $old['household_mode'] === 'new' ? ' checked' : '' ?>> Create a new household</label>
+                    <label><input type="radio" name="household_mode" value="existing"<?= $old['household_mode'] === 'existing' ? ' checked' : '' ?>> Join an existing household</label>
+                    <label><input type="radio" name="household_mode" value="none"<?= $old['household_mode'] === 'none' ? ' checked' : '' ?>> No household yet (assign later)</label>
+                </div>
+            </div>
+
+            <div id="hh_new_fields"<?= $old['household_mode'] !== 'new' ? ' hidden' : '' ?>>
+                <label for="household_no">New Household Number</label>
+                <input id="household_no" name="household_no" maxlength="50" value="<?= e($old['household_no']) ?>" placeholder="HH-XXXX"<?= in_array('household_no', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
+                <p class="field-hint">Leave blank to auto-generate the next number for this barangay. This resident will be recorded as the <strong>head of the family</strong> of the new household.</p>
+            </div>
+
+            <div id="hh_existing_fields"<?= $old['household_mode'] !== 'existing' ? ' hidden' : '' ?>>
+                <label for="household_id">Household</label>
+                <select id="household_id" name="household_id"<?= in_array('household_id', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
+                    <option value="0">Select household</option>
+                    <?php $use_groups = (count($hh_groups) > 1); foreach ($hh_groups as $g): if (!$g['items']) { continue; } ?>
+                        <?php if ($use_groups): ?><optgroup label="<?= e($g['name']) ?>"><?php endif; ?>
+                        <?php foreach ($g['items'] as $it): $mem = (int)$it['members']; ?>
+                        <option value="<?= (int)$it['id'] ?>"<?= (int)$old['household_id'] === (int)$it['id'] ? ' selected' : '' ?>><?= e($it['household_no']) ?> &mdash; <?= e($it['head_name'] ?: 'No head yet') ?> (<?= $mem ?> member<?= $mem === 1 ? '' : 's' ?>)</option>
+                        <?php endforeach; ?>
+                        <?php if ($use_groups): ?></optgroup><?php endif; ?>
+                    <?php endforeach; ?>
+                </select>
+                <label style="margin-top:6px;display:inline-flex;gap:6px;align-items:center">
+                    <input type="checkbox" id="is_head" name="is_head" value="1"<?= $old['is_head'] ? ' checked' : '' ?><?= in_array('is_head', $error_fields, true) ? ' class="is-invalid"' : '' ?>>
+                    Head of this household
+                </label>
+                <p class="field-hint">Tick this only when the household has no living head yet (the list marks those as "No head yet").</p>
             </div>
 
             <div>
@@ -434,5 +580,22 @@ include BASE_PATH . '/partials/header.php';
         </div>
     </form>
 </div>
+
+<script>
+(function () {
+    // Show only the fields for the selected household mode.
+    var radios = document.querySelectorAll('input[name="household_mode"]');
+    var newBox = document.getElementById('hh_new_fields');
+    var exBox  = document.getElementById('hh_existing_fields');
+    function sync() {
+        var mode = 'new';
+        radios.forEach(function (r) { if (r.checked) { mode = r.value; } });
+        if (newBox) { newBox.hidden = (mode !== 'new'); }
+        if (exBox)  { exBox.hidden  = (mode !== 'existing'); }
+    }
+    radios.forEach(function (r) { r.addEventListener('change', sync); });
+    sync();
+})();
+</script>
 
 <?php include BASE_PATH . '/partials/footer.php'; ?>

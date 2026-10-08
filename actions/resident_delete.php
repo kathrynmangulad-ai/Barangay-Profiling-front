@@ -11,7 +11,7 @@ if ($id <= 0) {
     die("Invalid resident ID.");
 }
 
-$chk = $conn->prepare("SELECT barangay_id FROM residents WHERE id = ? AND deleted_at IS NULL LIMIT 1");
+$chk = $conn->prepare("SELECT barangay_id, household_id FROM residents WHERE id = ? AND deleted_at IS NULL LIMIT 1");
 $chk->bind_param("i", $id);
 $chk->execute();
 $row = $chk->get_result()->fetch_assoc();
@@ -25,9 +25,18 @@ require_barangay_access($row['barangay_id'], 'resident', $id);
 // Soft delete: stamp deleted_at instead of removing the row. Because the
 // resident record is kept (just hidden), related document_requests and
 // blotter_records keep pointing at it and need no detaching.
+//
+// Household maintenance rides in the same transaction: when this was the last
+// live member of their household the household is retired (soft-deleted) so it
+// stops being counted. The head pointer is deliberately kept - if a head is
+// restored later and headship was not reassigned, they automatically become
+// head again.
+$household_id = (int)($row['household_id'] ?? 0);
 $step = 'soft delete resident (UPDATE residents SET deleted_at = NOW() WHERE id = ?)';
+$conn->begin_transaction();
 $stmt = $conn->prepare("UPDATE residents SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL");
 if (!$stmt) {
+    $conn->rollback();
     http_response_code(500);
     die('Delete failed: could not prepare statement &mdash; ' . e($conn->error));
 }
@@ -36,7 +45,12 @@ $ok = $stmt->execute();
 $fail = $conn->error;
 $stmt->close();
 
+if ($ok && $household_id > 0) {
+    household_retire_if_empty($conn, $household_id);
+}
+
 if (!$ok) {
+    $conn->rollback();
     log_access('resident_delete_failed', 'resident', $id, 'denied');
     http_response_code(500);
     die(
@@ -55,6 +69,7 @@ if (!$ok) {
     );
 }
 
+$conn->commit();
 log_access('resident_deleted', 'resident', $id);
 header("Location: " . url('pages/residents.php?deleted=1'));
 exit;

@@ -130,6 +130,7 @@ function count_table($conn, $table, $where, $types, $params) {
 
 // Date column used for the year filter on each table.
 $resYear = year_cond('created_at');   // residents
+$hhYear  = ' AND YEAR(created_at) = ?'; // households (by the year the household was formed)
 $docYear = year_cond('requested_at'); // document_requests
 $blotYearExpr = 'COALESCE(incident_datetime, report_datetime, created_at)';
 $blotYear = year_cond($blotYearExpr); // blotter_records
@@ -150,7 +151,7 @@ $residents = run_count($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at
 $docs      = run_count($conn, "SELECT COUNT(*) c FROM document_requests WHERE 1$docYear$scopeN", $yTypes, $yParams);
 $blotters  = run_count($conn, "SELECT COUNT(*) c FROM blotter_records WHERE 1$blotYear$scopeN", $yTypes, $yParams);
 
-$total_households = run_count($conn, "SELECT COUNT(DISTINCT household_no) c FROM residents WHERE deleted_at IS NULL AND household_no IS NOT NULL AND household_no <> ''$resYear$scopeN", $yTypes, $yParams);
+$total_households = run_count($conn, "SELECT COUNT(*) c FROM households WHERE deleted_at IS NULL$hhYear$scopeN", $yTypes, $yParams);
 $total_pwd        = run_count($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND is_pwd IN ('Yes',1,'1')$resYear$scopeN", $yTypes, $yParams);
 $total_students   = run_count($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND is_student IN ('Yes',1,'1')$resYear$scopeN", $yTypes, $yParams);
 
@@ -214,14 +215,14 @@ $residentsMonthly = spark_series($conn, "SELECT DATE_FORMAT(created_at,'%Y-%m') 
 $docsMonthly = spark_series($conn, "SELECT DATE_FORMAT(requested_at,'%Y-%m') ym, COUNT(*) c FROM document_requests WHERE requested_at >= ?" . $scopeN . " GROUP BY ym", $scoped ? 'si' : 's', $scoped ? [$sparkStart, $bid] : [$sparkStart]);
 $blotExpr = "COALESCE(incident_datetime, report_datetime, created_at)";
 $blotMonthly = spark_series($conn, "SELECT DATE_FORMAT($blotExpr,'%Y-%m') ym, COUNT(*) c FROM blotter_records WHERE $blotExpr >= ?" . $scopeN . " GROUP BY ym", $scoped ? 'si' : 's', $scoped ? [$sparkStart, $bid] : [$sparkStart]);
-$hhMonthly = spark_series($conn, "SELECT DATE_FORMAT(created_at,'%Y-%m') ym, COUNT(DISTINCT household_no) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND household_no IS NOT NULL AND household_no <> ''" . $scopeN . " GROUP BY ym", $scoped ? 'si' : 's', $scoped ? [$sparkStart, $bid] : [$sparkStart]);
+$hhMonthly = spark_series($conn, "SELECT DATE_FORMAT(created_at,'%Y-%m') ym, COUNT(*) c FROM households WHERE deleted_at IS NULL AND created_at >= ?" . $scopeN . " GROUP BY ym", $scoped ? 'si' : 's', $scoped ? [$sparkStart, $bid] : [$sparkStart]);
 $pwdMonthly = spark_series($conn, "SELECT DATE_FORMAT(created_at,'%Y-%m') ym, COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND is_pwd IN ('Yes',1,'1')" . $scopeN . " GROUP BY ym", $scoped ? 'si' : 's', $scoped ? [$sparkStart, $bid] : [$sparkStart]);
 $stuMonthly = spark_series($conn, "SELECT DATE_FORMAT(created_at,'%Y-%m') ym, COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND is_student IN ('Yes',1,'1')" . $scopeN . " GROUP BY ym", $scoped ? 'si' : 's', $scoped ? [$sparkStart, $bid] : [$sparkStart]);
  
 $resPrev = spark_prev_total($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ?" . $scopeN, $scoped ? 'sii' : 'ss', $scoped ? [$prevStart, $sparkStart, $bid] : [$prevStart, $sparkStart]);
 $docPrev = spark_prev_total($conn, "SELECT COUNT(*) c FROM document_requests WHERE requested_at >= ? AND requested_at < ?" . $scopeN, $scoped ? 'sii' : 'ss', $scoped ? [$prevStart, $sparkStart, $bid] : [$prevStart, $sparkStart]);
 $bloPrev = spark_prev_total($conn, "SELECT COUNT(*) c FROM blotter_records WHERE $blotExpr >= ? AND $blotExpr < ?" . $scopeN, $scoped ? 'sii' : 'ss', $scoped ? [$prevStart, $sparkStart, $bid] : [$prevStart, $sparkStart]);
-$hhPrev  = spark_prev_total($conn, "SELECT COUNT(DISTINCT household_no) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ? AND household_no IS NOT NULL AND household_no <> ''" . $scopeN, $scoped ? 'sii' : 'ss', $scoped ? [$prevStart, $sparkStart, $bid] : [$prevStart, $sparkStart]);
+$hhPrev  = spark_prev_total($conn, "SELECT COUNT(*) c FROM households WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ?" . $scopeN, $scoped ? 'sii' : 'ss', $scoped ? [$prevStart, $sparkStart, $bid] : [$prevStart, $sparkStart]);
 $pwdPrev = spark_prev_total($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ? AND is_pwd IN ('Yes',1,'1')" . $scopeN, $scoped ? 'sii' : 'ss', $scoped ? [$prevStart, $sparkStart, $bid] : [$prevStart, $sparkStart]);
 $stuPrev = spark_prev_total($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ? AND is_student IN ('Yes',1,'1')" . $scopeN, $scoped ? 'sii' : 'ss', $scoped ? [$prevStart, $sparkStart, $bid] : [$prevStart, $sparkStart]);
 function spark_build($monthly, $sparkMonths, $currentTotal, $prevTotal) {
@@ -440,9 +441,9 @@ if ($showBreakdown) {
         }
     } else {
         // Live: residents-derived metrics grouped by barangay for the year.
+        // Households are counted separately from the households table below.
         $sqlR = "SELECT barangay_id,
                         COUNT(*) residents,
-                        COUNT(DISTINCT CASE WHEN household_no IS NOT NULL AND household_no <> '' THEN household_no END) households,
                         SUM(CASE WHEN is_student IN ('Yes',1,'1') THEN 1 ELSE 0 END) students,
                         SUM(CASE WHEN is_pwd IN ('Yes',1,'1') THEN 1 ELSE 0 END) pwd,
                         SUM(CASE WHEN age >= 60 THEN 1 ELSE 0 END) seniors" .
@@ -459,7 +460,6 @@ if ($showBreakdown) {
                 $id = (int)$row['barangay_id'];
                 if (!isset($byId[$id])) { continue; }
                 $byId[$id]['residents']  = (int)$row['residents'];
-                $byId[$id]['households'] = (int)$row['households'];
                 $byId[$id]['students']   = (int)$row['students'];
                 $byId[$id]['pwd']        = (int)$row['pwd'];
                 $byId[$id]['seniors']    = (int)$row['seniors'];
@@ -467,6 +467,14 @@ if ($showBreakdown) {
                 $byId[$id]['fourps']     = (int)($row['fp'] ?? 0);
             }
             $rq2->close();
+        }
+        // Households per barangay for the year, straight from the households table.
+        if ($hq2 = $conn->prepare("SELECT barangay_id, COUNT(*) c FROM households WHERE deleted_at IS NULL AND YEAR(created_at)=? GROUP BY barangay_id")) {
+            $hq2->bind_param('i', $selYear);
+            $hq2->execute();
+            $r2 = $hq2->get_result();
+            while ($row = $r2->fetch_assoc()) { $id = (int)$row['barangay_id']; if (isset($byId[$id])) { $byId[$id]['households'] = (int)$row['c']; } }
+            $hq2->close();
         }
         // Documents per barangay for the year.
         if ($dq2 = $conn->prepare("SELECT barangay_id, COUNT(*) c FROM document_requests WHERE YEAR(requested_at)=? GROUP BY barangay_id")) {

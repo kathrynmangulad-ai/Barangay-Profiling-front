@@ -12,7 +12,7 @@ $deleted_cond = $view_deleted ? 'r.deleted_at IS NOT NULL' : 'r.deleted_at IS NU
 $ip_col=null; $fp_col=null;
 foreach(['is_ip','is_indigenous','indigenous'] as $cand){ $qc=$conn->query("SHOW COLUMNS FROM residents LIKE '$cand'"); if($qc){ if($qc->num_rows>0){ $ip_col=$cand; $qc->free(); break; } $qc->free(); } }
 foreach(['is_4ps','is_fourps','fourps','pantawid'] as $cand){ $qc=$conn->query("SHOW COLUMNS FROM residents LIKE '$cand'"); if($qc){ if($qc->num_rows>0){ $fp_col=$cand; $qc->free(); break; } $qc->free(); } }
-$sql="SELECT r.*,b.barangay_name,u.email AS account_email FROM residents r JOIN barangays b ON b.id=r.barangay_id LEFT JOIN users u ON u.id=r.user_id WHERE $deleted_cond"; $params=[];$types='';
+$sql="SELECT r.*,b.barangay_name,u.email AS account_email, hh.household_no AS household_label, hh.head_resident_id AS household_head_id FROM residents r JOIN barangays b ON b.id=r.barangay_id LEFT JOIN users u ON u.id=r.user_id LEFT JOIN households hh ON hh.id=r.household_id AND hh.deleted_at IS NULL WHERE $deleted_cond"; $params=[];$types='';
 if($_SESSION['role']!=='admin'){ $sql.=" AND r.barangay_id=?";$types.='i';$params[]=$_SESSION['barangay_id']; }
 elseif($f_brgy>0){ $sql.=" AND r.barangay_id=?";$types.='i';$params[]=$f_brgy; }
 if($q!==''){ $sql.=" AND (r.last_name LIKE ? OR r.first_name LIKE ? OR r.middle_name LIKE ?)";
@@ -37,15 +37,26 @@ if($_SESSION['role']!=='admin'){
     $on=$conn->prepare('SELECT barangay_name FROM barangays WHERE id=? LIMIT 1');
     if($on){ $on->bind_param('i',$own); $on->execute(); $or=$on->get_result()->fetch_assoc(); $on->close(); if($or){ $brgy_label=$or['barangay_name']; } }
 }
-$household_query = $conn->query("
-    SELECT COUNT(DISTINCT household_no) AS total
-    FROM residents
-    WHERE deleted_at IS NULL
-    AND household_no IS NOT NULL
-    AND household_no != ''
-");
-
-$total_households = $household_query->fetch_assoc()['total'];
+// Households are counted from the households table (one row per household) and
+// scoped exactly like the residents list, so a secretary only ever sees their
+// own barangay's totals.
+$hhSql = 'SELECT COUNT(*) AS total FROM households WHERE deleted_at IS NULL';
+$hhTypes = '';
+$hhParams = [];
+if ($_SESSION['role'] !== 'admin') {
+    $hhSql .= ' AND barangay_id = ?';
+    $hhTypes = 'i';
+    $hhParams[] = (int)$_SESSION['barangay_id'];
+} elseif ($f_brgy > 0) {
+    $hhSql .= ' AND barangay_id = ?';
+    $hhTypes = 'i';
+    $hhParams[] = $f_brgy;
+}
+$household_query = $conn->prepare($hhSql);
+if ($hhTypes !== '') { $household_query->bind_param($hhTypes, ...$hhParams); }
+$household_query->execute();
+$total_households = $household_query->get_result()->fetch_assoc()['total'];
+$household_query->close();
 
 $pwd_query = $conn->query("
     SELECT COUNT(*) AS total
@@ -177,7 +188,32 @@ include BASE_PATH . '/partials/header.php';?>
     <td style="white-space:nowrap"><?= $cell($r['is_student']) ?></td>
     <td style="white-space:nowrap"><?= $cell($r['is_IP']) ?></td>
     <td style="white-space:nowrap"><?= $cell($fp_col !== null ? ($r[$fp_col] ?? null) : null) ?></td>
-    <td style="white-space:nowrap"><?= $cell($r['household_no']) ?></td>
+    <td style="white-space:nowrap"><?php
+        $hhLabel = trim((string)($r['household_label'] ?? ($r['household_no'] ?? '')));
+        if ($hhLabel !== '') {
+            echo e($hhLabel);
+            if ((int)($r['household_head_id'] ?? 0) === (int)$r['id']) {
+                echo ' <span class="badge badge--info">Head</span>';
+            }
+        } elseif ((int)($r['household_id'] ?? 0) > 0) {
+            echo '<span class="muted-meta">Hidden</span>';
+        } else {
+            echo '<span class="muted-meta">Unassigned</span>';
+        }
+    ?></td>
+    <td style="white-space:nowrap"><?php
+        $hhLabel = trim((string)($r['household_label'] ?? ''));
+        if ($hhLabel !== '') {
+            echo e($hhLabel);
+            if ((int)($r['household_head_id'] ?? 0) === (int)$r['id']) {
+                echo ' <span class="badge badge--info">Head</span>';
+            }
+        } elseif ((int)($r['household_id'] ?? 0) > 0) {
+            echo '<span class="muted-meta">Hidden</span>';
+        } else {
+            echo '<span class="muted-meta">Unassigned</span>';
+        }
+    ?></td>
     <td><?= $cell($r['occupation']) ?></td>
     <td style="white-space:nowrap"><?= $cell($r['contact_no']) ?></td>
     <td><?= $cell($r['email'] ?? ($r['account_email'] ?? null)) ?></td>

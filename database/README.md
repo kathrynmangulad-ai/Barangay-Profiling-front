@@ -48,6 +48,7 @@ first time.
 | `barangays` | Reference list of barangays |
 | `users` | Accounts (admin / secretary / resident); `deleted_at` = soft delete |
 | `residents` | Resident profile records; `deleted_at` = soft delete |
+| `households` | Households (one row each) with the head of the family; `residents.household_id` binds every resident to their household |
 | `document_requests` | Certificate / clearance requests + workflow |
 | `document_status_history` | Audit trail of document status changes |
 | `blotter_records` | Blotter / incident reports |

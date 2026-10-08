@@ -16,13 +16,14 @@ $ipAgg=$has_ip?"COUNT(CASE WHEN r.deleted_at IS NULL AND r.`$ip_col` IN ('Yes',1
 $fpAgg=$has_fp?"COUNT(CASE WHEN r.deleted_at IS NULL AND r.`$fp_col` IN ('Yes',1,'1') THEN r.id END) fourps_total":"0 fourps_total";
 $select='SELECT b.*,
     COUNT(CASE WHEN r.deleted_at IS NULL THEN r.id END) residents,
-    COUNT(DISTINCT CASE WHEN r.deleted_at IS NULL AND r.household_no IS NOT NULL AND r.household_no <> \'\' THEN r.household_no END) households,
     COUNT(CASE WHEN r.deleted_at IS NULL AND r.is_student IN (\'Yes\',1,\'1\') THEN r.id END) students,
     COUNT(CASE WHEN r.deleted_at IS NULL AND r.is_pwd IN (\'Yes\',1,\'1\') THEN r.id END) pwd,
     COUNT(CASE WHEN r.deleted_at IS NULL AND r.age >= 60 THEN r.id END) seniors, '
-    .$fpAgg.', '.$ipAgg.'
-   FROM barangays b
-   LEFT JOIN residents r ON r.barangay_id=b.id';
+    .$fpAgg.', '.$ipAgg.', COALESCE(hh.households, 0) households
+    FROM barangays b
+   LEFT JOIN residents r ON r.barangay_id=b.id
+   LEFT JOIN (SELECT barangay_id, COUNT(*) households
+                FROM households WHERE deleted_at IS NULL GROUP BY barangay_id) hh ON hh.barangay_id=b.id';
 if($q!==''){ $s=$conn->prepare($select.' WHERE b.barangay_name LIKE ? GROUP BY b.id ORDER BY b.barangay_name');
 $like="%$q%"; $s->bind_param('s',$like); $s->execute(); $rows=$s->get_result();
 } else {

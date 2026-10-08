@@ -20,10 +20,12 @@ $uid = (int)current_user()['id'];
 $profile = null;
 $account_email = '';
 $ps = $conn->prepare(
-    'SELECT r.*, b.barangay_name, u.email AS account_email
+    'SELECT r.*, b.barangay_name, u.email AS account_email,
+            h.household_no AS hh_no, h.head_resident_id AS hh_head_id
        FROM residents r
        LEFT JOIN barangays b ON b.id = r.barangay_id
        LEFT JOIN users u ON u.id = r.user_id
+       LEFT JOIN households h ON h.id = r.household_id AND h.deleted_at IS NULL
       WHERE r.user_id = ? AND r.deleted_at IS NULL LIMIT 1'
 );
 $ps->bind_param('i', $uid);
@@ -319,7 +321,7 @@ include BASE_PATH . '/partials/header.php';
             <?php endif; ?></td>
         </tr>
         <tr><td>Birth Date</td><td><?= e($profile['birth_date'] ?? '-') ?></td></tr>
-        <tr><td>Household No.</td><td><?= e($profile['household_no'] ?? '-') ?></td></tr>
+        <tr><td>Household</td><td><?php if (!empty($profile['hh_no'])): ?><?= e($profile['hh_no']) ?><?= (int)($profile['hh_head_id'] ?? 0) === (int)($profile['id']) ? ' <span class="badge badge--info">Head of the family</span>' : '' ?><?php else: ?><span class="muted-meta">Not yet assigned &mdash; your barangay office will bind you to a household</span><?php endif; ?></td></tr>
         <tr><td>PWD</td><td><?= e($profile['is_pwd'] ?? '-') ?></td></tr>
         <tr><td>Student</td><td><?= e($profile['is_student'] ?? '-') ?></td></tr>
         <tr><td>Indigenous People (IP)</td><td><?= e($ip_col !== null ? ($profile[$ip_col] ?? '-') : '-') ?></td></tr>

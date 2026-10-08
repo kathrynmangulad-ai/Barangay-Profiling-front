@@ -26,6 +26,7 @@ DROP TABLE IF EXISTS `login_attempts`;
 DROP TABLE IF EXISTS `access_log`;
 DROP TABLE IF EXISTS `barangay_yearly_stats`;
 DROP TABLE IF EXISTS `residents`;
+DROP TABLE IF EXISTS `households`;
 DROP TABLE IF EXISTS `users`;
 DROP TABLE IF EXISTS `barangays`;
 
@@ -38,6 +39,29 @@ CREATE TABLE `barangays` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `barangay_name` (`barangay_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- households : one row per household. head_resident_id = the head of the family
+-- (plain indexed column, NOT a foreign key - residents are only ever soft
+-- deleted, so the pointer can safely outlive a hidden member and headship is
+-- restored automatically when that resident is restored).
+-- household_no is unique per barangay, which is what the counts are built on.
+-- -----------------------------------------------------------------------------
+CREATE TABLE `households` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `barangay_id` int(11) NOT NULL,
+  `household_no` varchar(50) NOT NULL,
+  `head_resident_id` int(11) DEFAULT NULL,
+  `purok` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `deleted_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_households_brgy_no` (`barangay_id`,`household_no`),
+  KEY `idx_households_barangay` (`barangay_id`),
+  KEY `idx_households_head` (`head_resident_id`),
+  CONSTRAINT `fk_households_barangay` FOREIGN KEY (`barangay_id`) REFERENCES `barangays` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
@@ -82,6 +106,8 @@ CREATE TABLE `residents` (
   `email` varchar(255) DEFAULT NULL,
   `address` varchar(255) DEFAULT NULL,
   `photo` varchar(255) DEFAULT NULL,
+  `household_id` int(11) DEFAULT NULL,
+  -- legacy free-text number; superseded by household_id, kept so old rows/exports still read.
   `household_no` varchar(50) DEFAULT NULL,
   `is_pwd` enum('Yes','No') NOT NULL DEFAULT 'No',
   `is_student` enum('Yes','No') NOT NULL DEFAULT 'No',
@@ -94,8 +120,10 @@ CREATE TABLE `residents` (
   UNIQUE KEY `uq_residents_user` (`user_id`),
   KEY `idx_residents_barangay` (`barangay_id`),
   KEY `idx_residents_deleted_at` (`deleted_at`),
+  KEY `idx_residents_household` (`household_id`),
   CONSTRAINT `residents_ibfk_1` FOREIGN KEY (`barangay_id`) REFERENCES `barangays` (`id`),
-  CONSTRAINT `fk_residents_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+  CONSTRAINT `fk_residents_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_residents_household` FOREIGN KEY (`household_id`) REFERENCES `households` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------

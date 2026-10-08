@@ -78,11 +78,11 @@ while ($row = $rs->fetch_assoc()) {
 }
 $st->close();
 
-// Households: distinct non-empty household_no per barangay.
-$sql = "SELECT barangay_id, COUNT(DISTINCT household_no) hh
-          FROM residents
+// Households: one row per household in the households table, grouped by the
+// year the household was formed (created_at).
+$sql = "SELECT barangay_id, COUNT(*) hh
+          FROM households
          WHERE deleted_at IS NULL AND YEAR(created_at) = ?
-           AND household_no IS NOT NULL AND household_no <> ''
       GROUP BY barangay_id";
 $st = $conn->prepare($sql);
 $st->bind_param('i', $year);
