@@ -83,6 +83,93 @@ try {
 $ipTotal = array_sum($ipByBrgy);
 $fpTotal = array_sum($fpByBrgy);
 
+/* Secretary-only Purok/Zone column (live distinct zones from
+ * residents.address for the selected year). The snapshot table itself is
+ * per-barangay, so this just lists which zones exist in that barangay.
+ * When a zone is picked, the numbers row switches to live zone-only
+ * totals (same residents + IP/4Ps logic as the column). */
+$zonesByBrgy = [];
+$zoneOptions = [];
+$selZone     = '';
+$zoneTotals  = null;
+$zoneBreakdown = [];
+$has_addr_col = false;
+try {
+    if ($ac = $conn->query("SHOW COLUMNS FROM residents LIKE 'address'")) {
+        $has_addr_col = ($ac->num_rows > 0);
+        $ac->free();
+    }
+} catch (Throwable $e) { $has_addr_col = false; }
+if ($has_addr_col) {
+    try {
+        if ($zq = $conn->prepare("SELECT barangay_id, TRIM(address) z FROM residents WHERE deleted_at IS NULL AND YEAR(created_at)=? AND address IS NOT NULL AND TRIM(address) <> '' GROUP BY barangay_id, TRIM(address) ORDER BY TRIM(address) ASC")) {
+            $zq->bind_param('i', $selYear);
+            $zq->execute();
+            $zres = $zq->get_result();
+            while ($zw = $zres->fetch_assoc()) { $zonesByBrgy[(int)$zw['barangay_id']][] = (string)$zw['z']; }
+            $zq->close();
+        }
+    } catch (Throwable $e) { $zonesByBrgy = []; }
+    /* Zone filter value (secretary only): fixed Zone 1-7 options like the
+     * New Resident form. Validated against that fixed list so an unknown
+     * ?zone= resets to all zones. When a zone is picked, compute its live
+     * totals for the selected year + own barangay (residents, households,
+     * students, PWD, seniors, IP, 4Ps, male, female). Documents/Blotters
+     * stay from the snapshot (they are barangay-level, with no zone link). */
+    if (!$is_admin) {
+        $zoneOptions = ['Zone 1','Zone 2','Zone 3','Zone 4','Zone 5','Zone 6','Zone 7'];
+        $selZone = trim((string)($_GET['zone'] ?? ''));
+        if ($selZone !== '' && !in_array($selZone, $zoneOptions, true)) { $selZone = ''; }
+        $secBid = (int)($_SESSION['barangay_id'] ?? 0);
+        $ipExpr = ($ip_col !== null) ? "SUM(CASE WHEN `$ip_col` IN ('Yes',1,'1') THEN 1 ELSE 0 END)" : '0';
+        $fpExpr = ($fp_col !== null) ? "SUM(CASE WHEN `$fp_col` IN ('Yes',1,'1') THEN 1 ELSE 0 END)" : '0';
+        if ($selZone !== '') {
+            try {
+                $zsql = "SELECT COUNT(*) residents,
+                            COUNT(DISTINCT NULLIF(TRIM(household_no), '')) households,
+                            SUM(CASE WHEN is_student IN ('Yes',1,'1') THEN 1 ELSE 0 END) students,
+                            SUM(CASE WHEN is_pwd IN ('Yes',1,'1') THEN 1 ELSE 0 END) pwd,
+                            SUM(CASE WHEN age >= 60 THEN 1 ELSE 0 END) seniors,
+                            $ipExpr ip, $fpExpr fp,
+                            SUM(CASE WHEN sex='Male' THEN 1 ELSE 0 END) male,
+                            SUM(CASE WHEN sex='Female' THEN 1 ELSE 0 END) female
+                         FROM residents
+                        WHERE deleted_at IS NULL AND barangay_id=? AND YEAR(created_at)=? AND TRIM(address)=?";
+                if ($zt = $conn->prepare($zsql)) {
+                    $zt->bind_param('iis', $secBid, $selYear, $selZone);
+                    $zt->execute();
+                    $zoneTotals = $zt->get_result()->fetch_assoc();
+                    $zt->close();
+                }
+            } catch (Throwable $e) { $zoneTotals = null; }
+            if ($zoneTotals !== null) { $zoneBreakdown[$selZone] = $zoneTotals; }
+        } else {
+            /* All zones: one row per zone with its own live totals. */
+            try {
+                $bsql = "SELECT TRIM(address) z,
+                            COUNT(*) residents,
+                            COUNT(DISTINCT NULLIF(TRIM(household_no), '')) households,
+                            SUM(CASE WHEN is_student IN ('Yes',1,'1') THEN 1 ELSE 0 END) students,
+                            SUM(CASE WHEN is_pwd IN ('Yes',1,'1') THEN 1 ELSE 0 END) pwd,
+                            SUM(CASE WHEN age >= 60 THEN 1 ELSE 0 END) seniors,
+                            $ipExpr ip, $fpExpr fp,
+                            SUM(CASE WHEN sex='Male' THEN 1 ELSE 0 END) male,
+                            SUM(CASE WHEN sex='Female' THEN 1 ELSE 0 END) female
+                         FROM residents
+                        WHERE deleted_at IS NULL AND barangay_id=? AND YEAR(created_at)=? AND address IS NOT NULL AND TRIM(address) <> ''
+                        GROUP BY TRIM(address) ORDER BY TRIM(address) ASC";
+                if ($bt = $conn->prepare($bsql)) {
+                    $bt->bind_param('ii', $secBid, $selYear);
+                    $bt->execute();
+                    $bres = $bt->get_result();
+                    while ($bw = $bres->fetch_assoc()) { $zoneBreakdown[(string)$bw['z']] = $bw; }
+                    $bt->close();
+                }
+            } catch (Throwable $e) { $zoneBreakdown = []; }
+        }
+    }
+}
+
 /* Snapshot rows for the selected year. */
 $rows  = [];
 $sql   = 'SELECT s.*, b.barangay_name
@@ -130,6 +217,7 @@ if ($is_admin) {
     if ($selBrgy > 0) { $scopeLabel = $brgyOptions[$selBrgy] ?? ('Barangay #' . $selBrgy); }
 } else {
     $scopeLabel = $body[0]['barangay_name'] ?? 'My Barangay';
+    if ($selZone !== '') { $scopeLabel .= ' — ' . $selZone; }
 }
 
 include BASE_PATH . '/partials/header.php';
@@ -140,13 +228,7 @@ include BASE_PATH . '/partials/header.php';
     <p style="margin:3px 0 0;font-size:12.5px;">Year: <?= (int)$selYear ?> &middot; Scope: <?= e($scopeLabel) ?> &middot; Generated: <?= e(date('F j, Y g:i A')) ?></p>
 </div>
 
-<div class="section-head">
-    <div>
-        <h2>Yearly Statistics</h2>
-        <p>Frozen figures captured for <strong><?= (int)$selYear ?></strong> · per-barangay snapshots</p>
-    </div>
-    <span class="muted-meta"><?= count($rows) ?> record<?= count($rows) === 1 ? '' : 's' ?></span>
-</div>
+
 
 <div class="toolbar">
     <form method="get" action="<?= e(url('pages/reports.php')) ?>">
@@ -168,19 +250,26 @@ include BASE_PATH . '/partials/header.php';
             <option value="<?= (int)$y ?>"<?= $y === $selYear ? ' selected' : '' ?>><?= (int)$y ?></option>
             <?php endforeach; ?>
         </select>
+        <?php if (!$is_admin && $has_addr_col && $zoneOptions): ?>
+        <label class="sr-only" for="r_zone">Purok / Zone</label>
+        <select id="r_zone" name="zone">
+            <option value="">All Purok / Zones</option>
+            <?php foreach ($zoneOptions as $zo): ?>
+            <option value="<?= e($zo) ?>"<?= $selZone === $zo ? ' selected' : '' ?>><?= e($zo) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <?php endif; ?>
         <button class="btn" type="submit">Filter</button>
+        <?php if (!$is_admin && $selZone !== ''): ?>
+        <a class="btn btn--ghost" href="<?= e(url('pages/reports.php?year=' . (int)$selYear)) ?>">Clear zone</a>
+        <?php endif; ?>
         <?php if ($is_admin): ?>
         <button class="btn" type="submit">Search</button>
         <?php endif; ?>
         <a class="btn btn--ghost" href="<?= e(url('pages/reports.php')) ?>">Reset</a>
     </form>
-
+<span class="muted-meta"><?= count($rows) ?> record<?= count($rows) === 1 ? '' : 's' ?></span>
     <span class="push-right" style="display:inline-flex;gap:8px;align-items:center;">
-        <?php if ($is_admin): ?>
-        <a class="btn" href="<?= e(url('admin/yearly_capture.php?year=' . (int)$selYear . '&token=' . csrf_token())) ?>"
-           data-confirm="Re-capture the <?= (int)$selYear ?> snapshot for every barangay? Re-running overwrites this year's figures."
-           data-confirm-title="Capture yearly snapshot">Capture / refresh <?= (int)$selYear ?></a>
-        <?php endif; ?>
         <button class="btn" type="button" onclick="window.print()">🖨 View / Print</button>
     </span>
 </div>
@@ -189,7 +278,7 @@ include BASE_PATH . '/partials/header.php';
     <table class="data-table data-table--compact">
         <thead>
             <tr>
-                <th class="is-left">Barangay</th>
+                <?php if ($is_admin): ?><th class="is-left">Barangay</th><?php else: ?><th class="is-left">Purok/Zone</th><?php endif; ?>
                 <th>Residents</th>
                 <th>Households</th>
                 <th>Students</th>
@@ -217,6 +306,46 @@ include BASE_PATH . '/partials/header.php';
                 </td>
             </tr>
             <?php else: ?>
+                <?php if (!$is_admin): ?>
+                    <?php $secRow = $body[0] ?? null; ?>
+                    <?php $secZoneRows = $zoneBreakdown ?: []; ?>
+                    <?php if ($secZoneRows): ?>
+                        <?php foreach ($secZoneRows as $zname => $zt): ?>
+                        <tr>
+                            <td class="is-left"><?= e((string)$zname) ?></td>
+                            <td><?= number_format((int)($zt['residents'] ?? 0)) ?></td>
+                            <td><?= number_format((int)($zt['households'] ?? 0)) ?></td>
+                            <td><?= number_format((int)($zt['students'] ?? 0)) ?></td>
+                            <td><?= number_format((int)($zt['pwd'] ?? 0)) ?></td>
+                            <td><?= number_format((int)($zt['seniors'] ?? 0)) ?></td>
+                            <td><?= $ip_col !== null ? number_format((int)($zt['ip'] ?? 0)) : '-' ?></td>
+                            <td><?= $fp_col !== null ? number_format((int)($zt['fp'] ?? 0)) : '-' ?></td>
+                            <td><?= number_format((int)($zt['male'] ?? 0)) ?></td>
+                            <td><?= number_format((int)($zt['female'] ?? 0)) ?></td>
+                            <td><?= $secRow ? number_format((int)$secRow['documents']) : '0' ?></td>
+                            <td><?= $secRow ? number_format((int)$secRow['blotters']) : '0' ?></td>
+                            <td><?= ($secRow && $secRow['captured_at']) ? e(date('M j, Y', strtotime($secRow['captured_at']))) : '—' ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <?php $zoneListArr = $secRow ? ($zonesByBrgy[(int)$secRow['barangay_id']] ?? []) : []; if ($selZone !== '') { $zoneListArr = array_values(array_intersect($zoneListArr, [$selZone])); } $zoneList = $has_addr_col ? implode(', ', $zoneListArr) : ''; ?>
+                        <tr>
+                            <td class="is-left"><?= $selZone !== '' ? e($selZone) : ($zoneList !== '' ? e($zoneList) : '—') ?></td>
+                            <td><?= $secRow ? number_format((int)$secRow['residents']) : '0' ?></td>
+                            <td><?= $secRow ? number_format((int)$secRow['households']) : '0' ?></td>
+                            <td><?= $secRow ? number_format((int)$secRow['students']) : '0' ?></td>
+                            <td><?= $secRow ? number_format((int)$secRow['pwd']) : '0' ?></td>
+                            <td><?= $secRow ? number_format((int)$secRow['seniors']) : '0' ?></td>
+                            <td><?= $ip_col !== null ? number_format((int)($secRow ? ($ipByBrgy[(int)$secRow['barangay_id']] ?? 0) : 0)) : '-' ?></td>
+                            <td><?= $fp_col !== null ? number_format((int)($secRow ? ($fpByBrgy[(int)$secRow['barangay_id']] ?? 0) : 0)) : '-' ?></td>
+                            <td><?= $secRow ? number_format((int)$secRow['male']) : '0' ?></td>
+                            <td><?= $secRow ? number_format((int)$secRow['female']) : '0' ?></td>
+                            <td><?= $secRow ? number_format((int)$secRow['documents']) : '0' ?></td>
+                            <td><?= $secRow ? number_format((int)$secRow['blotters']) : '0' ?></td>
+                            <td><?= ($secRow && $secRow['captured_at']) ? e(date('M j, Y', strtotime($secRow['captured_at']))) : '—' ?></td>
+                        </tr>
+                    <?php endif; ?>
+                <?php else: ?>
                 <?php foreach ($body as $r): ?>
                 <tr>
                     <td class="is-left"><?= e($r['barangay_name'] ?? ('Barangay #' . (int)$r['barangay_id'])) ?></td>
@@ -232,11 +361,10 @@ include BASE_PATH . '/partials/header.php';
                     <td><?= number_format((int)$r['documents']) ?></td>
                     <td><?= number_format((int)$r['blotters']) ?></td>
                     <td><?= $r['captured_at'] ? e(date('M j, Y', strtotime($r['captured_at']))) : '—' ?></td>
-                    <?php if ($is_admin): ?>
                     <td><a class="btn" href="<?= e(url('pages/report_print.php?year=' . (int)$r['stat_year'] . '&barangay=' . (int)$r['barangay_id'])) ?>">🖨 View / Print</a></td>
-                    <?php endif; ?>
                 </tr>
                 <?php endforeach; ?>
+                <?php endif; ?>
             <?php endif; ?>
         </tbody>
         <?php if ($aggRow): ?>

@@ -121,6 +121,7 @@ include BASE_PATH . '/partials/header.php';?>
         <th>Photo</th>
         <th>Name</th>
         <th>Barangay</th>
+        <?php if(($_SESSION['role'] ?? '') !== 'admin'): ?><th>Purok/Zone</th><?php endif; ?>
         <th style="white-space:nowrap">Age</th>
         <th>Birth Date</th>
         <th>Civil Status</th>
@@ -168,12 +169,13 @@ include BASE_PATH . '/partials/header.php';?>
          
     <td><?= e(trim($r['last_name'] . ', ' . $r['first_name'] . ' ' . $r['middle_name'], ', ')) ?></td>
     <td><?= $cell($r['barangay_name']) ?></td>
+    <?php if(($_SESSION['role'] ?? '') !== 'admin'): ?><td><?= $cell($r['address'] ?? null) ?></td><?php endif; ?>
     <td style="white-space:nowrap"><?= $cell($r['age']) ?></td>
     <td><?= $cell($r['birth_date']) ?></td>
     <td><?= $cell($r['civil_status']) ?></td>
     <td style="white-space:nowrap"><?= $cell($r['is_pwd']) ?></td>
     <td style="white-space:nowrap"><?= $cell($r['is_student']) ?></td>
-    <td style="white-space:nowrap"><?= $cell($ip_col !== null ? ($r[$ip_col] ?? null) : null) ?></td>
+    <td style="white-space:nowrap"><?= $cell($r['is_IP']) ?></td>
     <td style="white-space:nowrap"><?= $cell($fp_col !== null ? ($r[$fp_col] ?? null) : null) ?></td>
     <td style="white-space:nowrap"><?= $cell($r['household_no']) ?></td>
     <td><?= $cell($r['occupation']) ?></td>

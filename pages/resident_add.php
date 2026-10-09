@@ -392,7 +392,16 @@ include BASE_PATH . '/partials/header.php';
 
             <div>
                 <label for="address">Purok / Zone</label>
-                <input id="address" name="address" value="<?= e($old['address']) ?>">
+                <select id="address" name="address">
+                    <option value=""<?= $old['address'] === '' ? ' selected' : '' ?>>Select</option>
+                    <?php $zone_opts = ['Zone 1','Zone 2','Zone 3','Zone 4','Zone 5','Zone 6','Zone 7']; ?>
+                    <?php if ($old['address'] !== '' && !in_array($old['address'], $zone_opts, true)): ?>
+                    <option value="<?= e($old['address']) ?>" selected><?= e($old['address']) ?></option>
+                    <?php endif; ?>
+                    <?php foreach ($zone_opts as $zo): ?>
+                    <option value="<?= $zo ?>"<?= $old['address'] === $zo ? ' selected' : '' ?>><?= $zo ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
 
             <div>

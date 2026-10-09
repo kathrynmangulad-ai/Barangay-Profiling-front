@@ -190,7 +190,7 @@ if (isset($_GET['blocked'])) {
 $pending = [];
 $pq = $conn->prepare(
     "SELECT u.id, u.username, u.full_name, u.created_at, u.email AS account_email,
-            r.id AS resident_id, r.last_name, r.first_name, r.middle_name, r.age, r.email AS resident_email
+            r.id AS resident_id, r.last_name, r.first_name, r.middle_name, r.age, r.email AS resident_email, r.photo
        FROM users u
        LEFT JOIN residents r ON r.user_id = u.id
       WHERE u.deleted_at IS NULL AND u.status = 'pending' AND u.role = 'resident' AND u.barangay_id = ?
@@ -209,7 +209,7 @@ $pq->close();
 $accounts = [];
 $aq = $conn->prepare(
     "SELECT u.id, u.username, u.full_name, u.status, u.created_at, u.email AS account_email,
-            r.id AS resident_id, r.last_name, r.first_name, r.middle_name, r.age, r.email AS resident_email
+            r.id AS resident_id, r.last_name, r.first_name, r.middle_name, r.age, r.email AS resident_email, r.photo
        FROM users u
        LEFT JOIN residents r ON r.user_id = u.id
       WHERE u.deleted_at IS NULL AND u.role = 'resident' AND u.barangay_id = ? AND u.status <> 'pending'
@@ -271,10 +271,12 @@ include BASE_PATH . '/partials/header.php';
 <div class="card table-wrap">
     <h3 style="padding:12px 14px;margin:0">Awaiting your approval</h3>
     <table>
-        <tr><th>Username</th><th>Resident Name</th><th>Email</th><th>Registered</th><th>Decision</th></tr>
+        <tr><th>Photo</th><th>Username</th><th>Resident Name</th><th>Email</th><th>Registered</th><th>Decision</th></tr>
         <?php foreach ($pending as $p): ?>
         <?php $p_email = trim((string)($p['account_email'] ?? '')) !== '' ? $p['account_email'] : ($p['resident_email'] ?? ''); ?>
+        <?php $p_photo = trim((string)($p['photo'] ?? '')); ?>
         <tr>
+            <td style="text-align:center"><?php if ($p_photo !== '' && @file_exists(BASE_PATH . '/' . $p_photo)): ?><img src="<?= e(url($p_photo)) ?>" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:50%;display:block;margin:0 auto"><?php else: ?><span class="muted-meta">&mdash;</span><?php endif; ?></td>
             <td><?= e($p['username']) ?></td>
             <td>
                 <?= e(trim(($p['last_name'] ?? '') . ', ' . ($p['first_name'] ?? '') . ' ' . ($p['middle_name'] ?? ''), ', ')) ?>
@@ -301,13 +303,15 @@ include BASE_PATH . '/partials/header.php';
 <div class="card table-wrap">
     <h3 style="padding:12px 14px;margin:0">Resident accounts</h3>
     <table>
-        <tr><th>Username</th><th>Resident Name</th><th>Email</th><th>Status</th><th>Registered</th><th>Action</th></tr>
+        <tr><th>Photo</th><th>Username</th><th>Resident Name</th><th>Email</th><th>Status</th><th>Registered</th><th>Action</th></tr>
         <?php if (!$accounts): ?>
-            <tr><td colspan="6" style="text-align:center">No resident accounts in this barangay yet.</td></tr>
+            <tr><td colspan="7" style="text-align:center">No resident accounts in this barangay yet.</td></tr>
         <?php endif; ?>
         <?php foreach ($accounts as $a): ?>
         <?php $a_email = trim((string)($a['account_email'] ?? '')) !== '' ? $a['account_email'] : ($a['resident_email'] ?? ''); ?>
+        <?php $a_photo = trim((string)($a['photo'] ?? '')); ?>
         <tr>
+            <td style="text-align:center"><?php if ($a_photo !== '' && @file_exists(BASE_PATH . '/' . $a_photo)): ?><img src="<?= e(url($a_photo)) ?>" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:50%;display:block;margin:0 auto"><?php else: ?><span class="muted-meta">&mdash;</span><?php endif; ?></td>
             <td><?= e($a['username']) ?></td>
             <td><?= e(trim(($a['last_name'] ?? '') . ', ' . ($a['first_name'] ?? '') . ' ' . ($a['middle_name'] ?? ''), ', ')) ?></td>
             <td><?= $a_email !== '' ? e($a_email) : '<span class="muted-meta">&mdash;</span>' ?></td>

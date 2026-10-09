@@ -199,7 +199,7 @@ include BASE_PATH . '/partials/header.php';?>
     </div>
     <div><label for="occupation">Occupation</label><input id="occupation" name="occupation" value="<?=e($r['occupation']) ?>"></div>
     <div><label for="contact_no">Contact No.</label><input id="contact_no" name="contact_no" value="<?=e($r['contact_no']) ?>"></div>
-    <div><label for="address">Purok/Zone</label><input id="address" name="address" value="<?=e($r['address']) ?>"></div>
+    <div><label for="address">Purok/Zone</label><select id="address" name="address"><?php $zone_opts = ['Zone 1','Zone 2','Zone 3','Zone 4','Zone 5','Zone 6','Zone 7']; $cur_zone = trim((string)($r['address'] ?? '')); ?><option value=""<?= $cur_zone === '' ? ' selected' : '' ?>>Select</option><?php if ($cur_zone !== '' && !in_array($cur_zone, $zone_opts, true)): ?><option value="<?=e($cur_zone) ?>" selected><?=e($cur_zone) ?></option><?php endif; ?><?php foreach ($zone_opts as $zo): ?><option value="<?= $zo ?>"<?= $cur_zone === $zo ? ' selected' : '' ?>><?= $zo ?></option><?php endforeach; ?></select></div>
     <div><label for="household_no">Household Number</label><input id="household_no" type="text" name="household_no" value="<?=e($r['household_no']) ?>"></div>
 
     <div>
@@ -225,5 +225,5 @@ include BASE_PATH . '/partials/header.php';?>
         <?php endif; ?>
     </div>
 
-</div><br><button class="btn" type="submit">Update</button></form></div><?php include BASE_PATH . '/partials/footer.php';
+</div><br><button class="btn" type="submit">Update</button> <a class="btn btn--ghost" href="<?= e(url('pages/residents.php')) ?>">Cancel</a></form></div><?php include BASE_PATH . '/partials/footer.php';
 

@@ -211,6 +211,7 @@ include BASE_PATH . '/partials/header.php';
             >
                 💾 Save Changes
             </button>
+            <a class="btn btn--ghost" href="<?= e(url('pages/blotters.php')) ?>">Cancel</a>
 
         </div>
 

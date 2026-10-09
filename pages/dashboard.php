@@ -276,15 +276,15 @@ $fourpsCol = resident_flag_col($conn, ['is_4ps', 'is_fourps', 'fourps', 'pantawi
 
 $total_ip  = 0;
 $total_4ps = 0;
-if ($ipCol !== null)     { $total_ip  = run_count($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND `$ipCol` IN ('Yes',1,'1')$resYear$scopeN", $yTypes, $yParams); }
+if ($ipCol !== null)     { $total_ip  = run_count($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND LOWER(TRIM(`$ipCol`)) IN ('yes','1','y','true')$resYear$scopeN", $yTypes, $yParams); }
 if ($fourpsCol !== null) { $total_4ps = run_count($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND `$fourpsCol` IN ('Yes',1,'1')$resYear$scopeN", $yTypes, $yParams); }
 
 // Sparklines for the two new cards (neutral, no delta, when a column is missing).
 $ipMonthly = $ipCol !== null
-    ? spark_series($conn, "SELECT DATE_FORMAT(created_at,'%Y-%m') ym, COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND `$ipCol` IN ('Yes',1,'1')" . $scopeN . " GROUP BY ym", $scoped ? 'si' : 's', $scoped ? [$sparkStart, $bid] : [$sparkStart])
+    ? spark_series($conn, "SELECT DATE_FORMAT(created_at,'%Y-%m') ym, COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND LOWER(TRIM(`$ipCol`)) IN ('yes','1','y','true')" . $scopeN . " GROUP BY ym", $scoped ? 'si' : 's', $scoped ? [$sparkStart, $bid] : [$sparkStart])
     : [];
 $ipPrev = $ipCol !== null
-    ? spark_prev_total($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ? AND `$ipCol` IN ('Yes',1,'1')$scopeN", $scoped ? 'sii' : 'ss', $scoped ? [$prevStart, $sparkStart, $bid] : [$prevStart, $sparkStart])
+    ? spark_prev_total($conn, "SELECT COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ? AND LOWER(TRIM(`$ipCol`)) IN ('yes','1','y','true')$scopeN", $scoped ? 'sii' : 'ss', $scoped ? [$prevStart, $sparkStart, $bid] : [$prevStart, $sparkStart])
     : 0;
 $fpMonthly = $fourpsCol !== null
     ? spark_series($conn, "SELECT DATE_FORMAT(created_at,'%Y-%m') ym, COUNT(*) c FROM residents WHERE deleted_at IS NULL AND created_at >= ? AND `$fourpsCol` IN ('Yes',1,'1')" . $scopeN . " GROUP BY ym", $scoped ? 'si' : 's', $scoped ? [$sparkStart, $bid] : [$sparkStart])
@@ -313,12 +313,17 @@ if ($usingSnapshot) {
     $resMonth = $residents; $docMonth = $docs; $blotMonth = $blotters;
 }
 
+$ipScoped     = $total_ip;
+$fourpsScoped  = $total_4ps;
+
 $popLabels = []; $popData = []; $popColors = [];
-if ($male > 0)      { $popLabels[] = 'Male';            $popData[] = $male;      $popColors[] = '#0E7490'; }
-if ($female > 0)    { $popLabels[] = 'Female';          $popData[] = $female;    $popColors[] = '#E58B82'; }
-if ($seniors > 0)   { $popLabels[] = 'Senior Citizens'; $popData[] = $seniors;   $popColors[] = '#F59E0B'; }
-if ($pwdScoped > 0) { $popLabels[] = 'PWD';             $popData[] = $pwdScoped; $popColors[] = '#16A34A'; }
-if ($stuScoped > 0) { $popLabels[] = 'Students';        $popData[] = $stuScoped; $popColors[] = '#075B6B'; }
+if ($male > 0)         { $popLabels[] = 'Male';            $popData[] = $male;         $popColors[] = '#0E7490'; }
+if ($female > 0)       { $popLabels[] = 'Female';          $popData[] = $female;       $popColors[] = '#E58B82'; }
+if ($seniors > 0)      { $popLabels[] = 'Senior Citizens'; $popData[] = $seniors;      $popColors[] = '#F59E0B'; }
+if ($pwdScoped > 0)    { $popLabels[] = 'PWD';             $popData[] = $pwdScoped;    $popColors[] = '#16A34A'; }
+if ($stuScoped > 0)    { $popLabels[] = 'Students';        $popData[] = $stuScoped;    $popColors[] = '#075B6B'; }
+if ($ipScoped > 0)     { $popLabels[] = 'IP';              $popData[] = $ipScoped;     $popColors[] = '#1D4ED8'; }
+if ($fourpsScoped > 0) { $popLabels[] = '4Ps';             $popData[] = $fourpsScoped; $popColors[] = '#EA580C'; }
 
  
 $docStatus = ['Pending' => 0, 'Processing' => 0, 'Released' => 0, 'Cancelled' => 0];
@@ -405,7 +410,7 @@ $activity = array_slice($activity, 0, 6);
  * ------------------------------------------------------------------------- */
 $showBreakdown = ($isAdmin && !$scoped);
 $breakdown = [];
-$breakdownTotals = ['residents' => 0, 'households' => 0, 'students' => 0, 'pwd' => 0, 'seniors' => 0, 'documents' => 0, 'blotters' => 0];
+$breakdownTotals = ['residents' => 0, 'households' => 0, 'students' => 0, 'pwd' => 0, 'seniors' => 0, 'ip' => 0, 'fourps' => 0, 'documents' => 0, 'blotters' => 0];
 if ($showBreakdown) {
     // Base map of every barangay (so barangays with zero records still appear).
     $brow = $conn->query('SELECT id, barangay_name FROM barangays ORDER BY barangay_name ASC');
@@ -413,7 +418,7 @@ if ($showBreakdown) {
     while ($brow && $b = $brow->fetch_assoc()) {
         $byId[(int)$b['id']] = [
             'name' => $b['barangay_name'],
-            'residents' => 0, 'households' => 0, 'students' => 0, 'pwd' => 0, 'seniors' => 0, 'documents' => 0, 'blotters' => 0,
+            'residents' => 0, 'households' => 0, 'students' => 0, 'pwd' => 0, 'seniors' => 0, 'ip' => 0, 'fourps' => 0, 'documents' => 0, 'blotters' => 0,
         ];
     }
 
@@ -429,6 +434,7 @@ if ($showBreakdown) {
                 foreach (['residents','households','students','pwd','seniors','documents','blotters'] as $k) {
                     $byId[$id][$k] = (int)$row[$k];
                 }
+                // Snapshots predate the IP/4Ps columns, so those stay live-computed below.
             }
             $bs2->close();
         }
@@ -439,7 +445,9 @@ if ($showBreakdown) {
                         COUNT(DISTINCT CASE WHEN household_no IS NOT NULL AND household_no <> '' THEN household_no END) households,
                         SUM(CASE WHEN is_student IN ('Yes',1,'1') THEN 1 ELSE 0 END) students,
                         SUM(CASE WHEN is_pwd IN ('Yes',1,'1') THEN 1 ELSE 0 END) pwd,
-                        SUM(CASE WHEN age >= 60 THEN 1 ELSE 0 END) seniors
+                        SUM(CASE WHEN age >= 60 THEN 1 ELSE 0 END) seniors" .
+                   ($ipCol !== null ? ", SUM(CASE WHEN LOWER(TRIM(`$ipCol`)) IN ('yes','1','y','true') THEN 1 ELSE 0 END) ip" : ", 0 ip") .
+                   ($fourpsCol !== null ? ", SUM(CASE WHEN LOWER(TRIM(`$fourpsCol`)) IN ('yes','1','y','true') THEN 1 ELSE 0 END) fp" : ", 0 fp") . "
                    FROM residents
                   WHERE deleted_at IS NULL AND YEAR(created_at) = ?
                GROUP BY barangay_id";
@@ -455,6 +463,8 @@ if ($showBreakdown) {
                 $byId[$id]['students']   = (int)$row['students'];
                 $byId[$id]['pwd']        = (int)$row['pwd'];
                 $byId[$id]['seniors']    = (int)$row['seniors'];
+                $byId[$id]['ip']         = (int)($row['ip'] ?? 0);
+                $byId[$id]['fourps']     = (int)($row['fp'] ?? 0);
             }
             $rq2->close();
         }
@@ -473,6 +483,22 @@ if ($showBreakdown) {
             $r2 = $bq2->get_result();
             while ($row = $r2->fetch_assoc()) { $id = (int)$row['barangay_id']; if (isset($byId[$id])) { $byId[$id]['blotters'] = (int)$row['c']; } }
             $bq2->close();
+        }
+        // IP / 4Ps per barangay for the year — computed live even for snapshot years
+        // because barangay_yearly_stats has no such columns.
+        if ($ipCol !== null && $iq2 = $conn->prepare("SELECT barangay_id, COUNT(*) c FROM residents WHERE deleted_at IS NULL AND YEAR(created_at)=? AND LOWER(TRIM(`$ipCol`)) IN ('yes','1','y','true') GROUP BY barangay_id")) {
+            $iq2->bind_param('i', $selYear);
+            $iq2->execute();
+            $r2 = $iq2->get_result();
+            while ($row = $r2->fetch_assoc()) { $id = (int)$row['barangay_id']; if (isset($byId[$id])) { $byId[$id]['ip'] = (int)$row['c']; } }
+            $iq2->close();
+        }
+        if ($fourpsCol !== null && $fq2 = $conn->prepare("SELECT barangay_id, COUNT(*) c FROM residents WHERE deleted_at IS NULL AND YEAR(created_at)=? AND LOWER(TRIM(`$fourpsCol`)) IN ('yes','1','y','true') GROUP BY barangay_id")) {
+            $fq2->bind_param('i', $selYear);
+            $fq2->execute();
+            $r2 = $fq2->get_result();
+            while ($row = $r2->fetch_assoc()) { $id = (int)$row['barangay_id']; if (isset($byId[$id])) { $byId[$id]['fourps'] = (int)$row['c']; } }
+            $fq2->close();
         }
     }
 
@@ -666,6 +692,8 @@ include BASE_PATH . '/partials/header.php';
                 <th>Students</th>
                 <th>PWD</th>
                 <th>Seniors</th>
+                <th>IP</th>
+                <th>4Ps</th>
                 <th>Documents</th>
                 <th>Blotters</th>
             </tr>
@@ -679,6 +707,8 @@ include BASE_PATH . '/partials/header.php';
                 <td><?= number_format((int)$b['students']) ?></td>
                 <td><?= number_format((int)$b['pwd']) ?></td>
                 <td><?= number_format((int)$b['seniors']) ?></td>
+                <td><?= $ipCol !== null ? number_format((int)$b['ip']) : '-' ?></td>
+                <td><?= $fourpsCol !== null ? number_format((int)$b['fourps']) : '-' ?></td>
                 <td><?= number_format((int)$b['documents']) ?></td>
                 <td><?= number_format((int)$b['blotters']) ?></td>
             </tr>
@@ -692,6 +722,8 @@ include BASE_PATH . '/partials/header.php';
                 <td><?= number_format($breakdownTotals['students']) ?></td>
                 <td><?= number_format($breakdownTotals['pwd']) ?></td>
                 <td><?= number_format($breakdownTotals['seniors']) ?></td>
+                <td><?= $ipCol !== null ? number_format($breakdownTotals['ip']) : '-' ?></td>
+                <td><?= $fourpsCol !== null ? number_format($breakdownTotals['fourps']) : '-' ?></td>
                 <td><?= number_format($breakdownTotals['documents']) ?></td>
                 <td><?= number_format($breakdownTotals['blotters']) ?></td>
             </tr>
