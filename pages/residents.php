@@ -201,19 +201,6 @@ include BASE_PATH . '/partials/header.php';?>
             echo '<span class="muted-meta">Unassigned</span>';
         }
     ?></td>
-    <td style="white-space:nowrap"><?php
-        $hhLabel = trim((string)($r['household_label'] ?? ''));
-        if ($hhLabel !== '') {
-            echo e($hhLabel);
-            if ((int)($r['household_head_id'] ?? 0) === (int)$r['id']) {
-                echo ' <span class="badge badge--info">Head</span>';
-            }
-        } elseif ((int)($r['household_id'] ?? 0) > 0) {
-            echo '<span class="muted-meta">Hidden</span>';
-        } else {
-            echo '<span class="muted-meta">Unassigned</span>';
-        }
-    ?></td>
     <td><?= $cell($r['occupation']) ?></td>
     <td style="white-space:nowrap"><?= $cell($r['contact_no']) ?></td>
     <td><?= $cell($r['email'] ?? ($r['account_email'] ?? null)) ?></td>
