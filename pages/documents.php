@@ -114,8 +114,9 @@ $f_q        = trim($_GET['q'] ?? '');
 $f_document = trim($_GET['document'] ?? '');
 $f_barangay = (int)($_GET['barangay'] ?? 0);
 $f_purpose  = trim($_GET['purpose'] ?? '');
-$f_status   = trim($_GET['status'] ?? '');
-if (!in_array($f_status, ['Pending', 'Processing', 'Released'], true)) { $f_status = ''; }
+// Tab: '' = everything, 'unreleased' = Pending + Processing, 'released' = Released.
+$f_tab = trim($_GET['tab'] ?? '');
+if (!in_array($f_tab, ['unreleased', 'released'], true)) { $f_tab = ''; }
 
 $requestsSql = "
     SELECT
@@ -137,31 +138,34 @@ $requestsSql = "
 
 $fTypes = '';
 $fParams = [];
+$filterSql = '';
 if ($f_q !== '') {
-    $requestsSql .= " AND (dr.requestor_name LIKE ? OR dr.document_type LIKE ? OR dr.purpose LIKE ?)";
+    $filterSql .= " AND (dr.requestor_name LIKE ? OR dr.document_type LIKE ? OR dr.purpose LIKE ?)";
     $like = "%$f_q%";
     $fTypes .= 'sss';
     $fParams[] = $like; $fParams[] = $like; $fParams[] = $like;
 }
 if ($f_document !== '') {
-    $requestsSql .= " AND dr.document_type = ?";
+    $filterSql .= " AND dr.document_type = ?";
     $fTypes .= 's';
     $fParams[] = $f_document;
 }
 if ($f_barangay > 0 && $_SESSION['role'] === 'admin') {
-    $requestsSql .= " AND dr.barangay_id = ?";
+    $filterSql .= " AND dr.barangay_id = ?";
     $fTypes .= 'i';
     $fParams[] = $f_barangay;
 }
 if ($f_purpose !== '') {
-    $requestsSql .= " AND dr.purpose LIKE ?";
+    $filterSql .= " AND dr.purpose LIKE ?";
     $fTypes .= 's';
     $fParams[] = "%$f_purpose%";
 }
-if ($f_status !== '') {
-    $requestsSql .= " AND dr.status = ?";
-    $fTypes .= 's';
-    $fParams[] = $f_status;
+$requestsSql .= $filterSql;
+
+if ($f_tab === 'unreleased') {
+    $requestsSql .= " AND dr.status IN ('Pending','Processing')";
+} elseif ($f_tab === 'released') {
+    $requestsSql .= " AND dr.status = 'Released'";
 }
 
 $requestsSql .= " ORDER BY dr.id DESC ";
@@ -187,6 +191,34 @@ if ($dt = $conn->query("SELECT DISTINCT document_type FROM document_requests WHE
 if ($requests === false) {
     die("Document Request Query Error: " . $conn->error);
 }
+
+// Per-tab counts, honouring every active filter (q, document, barangay, purpose)
+// so the badges always match what each tab will show.
+$tab_counts = ['all' => 0, 'unreleased' => 0, 'released' => 0];
+$cntBase = "SELECT COUNT(*) c FROM document_requests dr LEFT JOIN barangays b ON dr.barangay_id = b.id WHERE 1=1 " . $scopeSql . $filterSql;
+foreach (['all' => '', 'unreleased' => " AND dr.status IN ('Pending','Processing')", 'released' => " AND dr.status = 'Released'"] as $tk => $tcond) {
+    if ($allParams) {
+        $cs = $conn->prepare($cntBase . $tcond);
+        $cs->bind_param($allTypes, ...$allParams);
+        $cs->execute();
+        $tab_counts[$tk] = (int)$cs->get_result()->fetch_assoc()['c'];
+        $cs->close();
+    } else {
+        $cq = $conn->query($cntBase . $tcond);
+        $tab_counts[$tk] = $cq ? (int)$cq->fetch_assoc()['c'] : 0;
+    }
+}
+$tabs = [
+    'all'        => ['label' => 'All'],
+    'unreleased' => ['label' => 'Unreleased'],
+    'released'   => ['label' => 'Released'],
+];
+$tab_key = $f_tab === '' ? 'all' : $f_tab;
+$tab_qs = function (string $key) use ($f_q, $f_document, $f_barangay, $f_purpose): string {
+    $qs = ['q' => $f_q, 'document' => $f_document, 'barangay' => $f_barangay, 'purpose' => $f_purpose];
+    if ($key !== 'all') { $qs['tab'] = $key; }
+    return url('pages/documents.php?' . http_build_query($qs));
+};
 
 
 include BASE_PATH . '/partials/header.php';
@@ -230,9 +262,24 @@ if (isset($error)) {
 
 
 
+<div class="toolbar" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <nav class="tabs" style="flex:1;flex-wrap:wrap;margin-bottom:0" aria-label="Document request status">
+        <?php foreach ($tabs as $key => $t): ?>
+        <a class="<?= $key === $tab_key ? 'active' : '' ?>"
+           href="<?= e($tab_qs($key)) ?>"
+           <?= $key === $tab_key ? 'aria-current="page"' : '' ?>>
+            <?= e($t['label']) ?> (<?= number_format($tab_counts[$key]) ?>)
+        </a>
+        <?php endforeach; ?>
+    </nav>
+    <button type="button" class="btn push-right" data-toggle="#new-request-form"
+            aria-controls="new-request-form" aria-expanded="false">+ New Request</button>
+</div>
+
 <div class="toolbar">
     <form method="get">
         <input type="hidden" name="q" value="<?= e($f_q) ?>">
+        <?php if ($tab_key !== 'all'): ?><input type="hidden" name="tab" value="<?= e($tab_key) ?>"><?php endif; ?>
 
         <label class="sr-only" for="f_document">Document</label>
         <select id="f_document" name="document">
@@ -252,18 +299,9 @@ if (isset($error)) {
         <?php endif; ?>
         <label class="sr-only" for="f_purpose">Purpose</label>
         <input id="f_purpose" type="text" name="purpose" placeholder="Purpose" value="<?= e($f_purpose) ?>">
-        <label class="sr-only" for="f_status">Status</label>
-        <select id="f_status" name="status">
-            <option value="">All statuses</option>
-            <?php foreach (['Pending','Processing','Released'] as $st): ?>
-                <option value="<?= $st ?>"<?= $f_status === $st ? ' selected' : '' ?>><?= $st ?></option>
-            <?php endforeach; ?>
-        </select>
         <button class="btn" type="submit">Filter</button>
         <a class="btn btn--ghost" href="<?= e(url('pages/documents.php')) ?>">Reset</a>
     </form>
-    <button type="button" class="btn push-right" data-toggle="#new-request-form"
-            aria-controls="new-request-form" aria-expanded="false">+ New Request</button>
 </div>
 
 <p class="muted-meta" role="status">Total: <?= number_format($requests->num_rows) ?> request<?= $requests->num_rows === 1 ? '' : 's' ?></p>
