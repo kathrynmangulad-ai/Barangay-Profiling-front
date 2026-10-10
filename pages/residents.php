@@ -186,7 +186,7 @@ include BASE_PATH . '/partials/header.php';?>
     <td><?= $cell($r['civil_status']) ?></td>
     <td style="white-space:nowrap"><?= $cell($r['is_pwd']) ?></td>
     <td style="white-space:nowrap"><?= $cell($r['is_student']) ?></td>
-    <td style="white-space:nowrap"><?= $cell($r['is_IP']) ?></td>
+    <td style="white-space:nowrap"><?= $cell($ip_col !== null ? ($r[$ip_col] ?? null) : null) ?></td>
     <td style="white-space:nowrap"><?= $cell($fp_col !== null ? ($r[$fp_col] ?? null) : null) ?></td>
     <td style="white-space:nowrap"><?php
         $hhLabel = trim((string)($r['household_label'] ?? ($r['household_no'] ?? '')));
