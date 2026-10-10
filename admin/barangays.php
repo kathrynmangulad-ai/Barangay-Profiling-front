@@ -29,7 +29,9 @@ $like="%$q%"; $s->bind_param('s',$like); $s->execute(); $rows=$s->get_result();
 } else {
 $rows=$conn->query($select.' GROUP BY b.id ORDER BY b.barangay_name');
 }
+$tot=['brgy'=>0,'residents'=>0,'households'=>0,'students'=>0,'pwd'=>0,'seniors'=>0,'fourps'=>0,'ip'=>0];
  include BASE_PATH . '/partials/header.php';?>
+        <p class="muted-meta" role="status">Total: <?= number_format($rows->num_rows) ?> barangay<?= $rows->num_rows === 1 ? '' : 's' ?></p>
         <div class="card table-wrap">
             <table><tr>
                 <th>ID</th>
@@ -41,7 +43,10 @@ $rows=$conn->query($select.' GROUP BY b.id ORDER BY b.barangay_name');
                 <th>Seniors</th>
                 <th>4Ps</th>
                 <th>IP</th></tr>
-                <?php while($r=$rows->fetch_assoc()): ?>
+                <?php while($r=$rows->fetch_assoc()):
+                $tot['brgy']++; $tot['residents']+=(int)$r['residents']; $tot['households']+=(int)$r['households'];
+                $tot['students']+=(int)$r['students']; $tot['pwd']+=(int)$r['pwd']; $tot['seniors']+=(int)$r['seniors'];
+                $tot['fourps']+=(int)$r['fourps_total']; $tot['ip']+=(int)$r['ip_total']; ?>
                 <tr><td><?=$r['id']?></td><td><?=e($r['barangay_name'])?></td>
                 <td><?=(int)$r['residents']?></td>
                 <td><?=(int)$r['households']?></td>
@@ -50,4 +55,14 @@ $rows=$conn->query($select.' GROUP BY b.id ORDER BY b.barangay_name');
                 <td><?=(int)$r['seniors']?></td>
                 <td><?=($has_fp?(int)$r['fourps_total']:'-')?></td>
                 <td><?=($has_ip?(int)$r['ip_total']:'-')?></td></tr><?php endwhile; ?>
+                <tr style="font-weight:700;background:rgba(0,0,0,.04)">
+                    <td>&mdash;</td><td>Total (<?= number_format($tot['brgy']) ?>)</td>
+                    <td><?= number_format($tot['residents']) ?></td>
+                    <td><?= number_format($tot['households']) ?></td>
+                    <td><?= number_format($tot['students']) ?></td>
+                    <td><?= number_format($tot['pwd']) ?></td>
+                    <td><?= number_format($tot['seniors']) ?></td>
+                    <td><?= $has_fp ? number_format($tot['fourps']) : '-' ?></td>
+                    <td><?= $has_ip ? number_format($tot['ip']) : '-' ?></td>
+                </tr>
                 </table></div><?php include BASE_PATH . '/partials/footer.php';

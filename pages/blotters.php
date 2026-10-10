@@ -43,12 +43,12 @@ include BASE_PATH . '/partials/header.php';?>
         </select>
         <button class="btn" type="submit">Filter</button>
         <?php if($_SESSION['role']==='admin'): ?>
-        <button class="btn" type="submit">Search</button>
         <a class="btn btn--ghost" href="<?= e(url('pages/blotters.php')) ?>">Reset</a>
         <?php endif; ?>
     </form>
     <a class="btn push-right" href="<?= e(url('pages/blotter_add.php')) ?>">+ Add new</a>
 </div>
+    <p class="muted-meta" role="status">Total: <?= number_format($rows->num_rows) ?> record<?= $rows->num_rows === 1 ? '' : 's' ?></p>
     <div class="card table-wrap">
         <table><tr><th>No.</th><th>Reporting Person</th>
         <th>Incident</th><th>Date/Time</th><th>Barangay</th>

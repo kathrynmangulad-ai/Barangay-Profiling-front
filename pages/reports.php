@@ -263,12 +263,9 @@ include BASE_PATH . '/partials/header.php';
         <?php if (!$is_admin && $selZone !== ''): ?>
         <a class="btn btn--ghost" href="<?= e(url('pages/reports.php?year=' . (int)$selYear)) ?>">Clear zone</a>
         <?php endif; ?>
-        <?php if ($is_admin): ?>
-        <button class="btn" type="submit">Search</button>
-        <?php endif; ?>
         <a class="btn btn--ghost" href="<?= e(url('pages/reports.php')) ?>">Reset</a>
     </form>
-<span class="muted-meta"><?= count($rows) ?> record<?= count($rows) === 1 ? '' : 's' ?></span>
+<span class="muted-meta">Total: <?= number_format(count($rows)) ?> record<?= count($rows) === 1 ? '' : 's' ?></span>
     <span class="push-right" style="display:inline-flex;gap:8px;align-items:center;">
         <button class="btn" type="button" onclick="window.print()">🖨 View / Print</button>
     </span>

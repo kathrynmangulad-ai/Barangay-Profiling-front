@@ -126,7 +126,7 @@ include BASE_PATH . '/partials/header.php';?>
             <?php endwhile; ?>
         </select>
         <?php endif; ?>
-        <button class="btn" type="submit">Search</button>
+        <button class="btn" type="submit">Filter</button>
         <a class="btn btn--ghost" href="<?= e(url('pages/households.php')) ?>">Reset</a>
         <a class="btn btn--ghost" href="<?= e(url('pages/residents.php')) ?>">&larr; Back to residents</a>
     </form>

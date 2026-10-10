@@ -259,12 +259,14 @@ if (isset($error)) {
                 <option value="<?= $st ?>"<?= $f_status === $st ? ' selected' : '' ?>><?= $st ?></option>
             <?php endforeach; ?>
         </select>
-        <button class="btn" type="submit">Search</button>
+        <button class="btn" type="submit">Filter</button>
         <a class="btn btn--ghost" href="<?= e(url('pages/documents.php')) ?>">Reset</a>
     </form>
     <button type="button" class="btn push-right" data-toggle="#new-request-form"
             aria-controls="new-request-form" aria-expanded="false">+ New Request</button>
 </div>
+
+<p class="muted-meta" role="status">Total: <?= number_format($requests->num_rows) ?> request<?= $requests->num_rows === 1 ? '' : 's' ?></p>
 
 
 

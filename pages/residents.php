@@ -110,7 +110,7 @@ include BASE_PATH . '/partials/header.php';?>
             <option value="oldest"<?=$f_sort==='oldest'?' selected':''?>>Sort: Oldest Registered</option>
         </select>
         <?php if($view_deleted): ?><input type="hidden" name="view" value="deleted"><?php endif; ?>
-        <button class="btn" type="submit">Search</button>
+        <button class="btn" type="submit">Filter</button>
         <a class="btn btn--ghost" href="<?= e(url('pages/residents.php' . ($view_deleted ? '?view=deleted' : ''))) ?>">Reset</a>
         <?php if($view_deleted): ?>
         <a class="btn btn--ghost" href="<?= e(url('pages/residents.php')) ?>">&larr; Back to residents</a>
