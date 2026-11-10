@@ -51,6 +51,11 @@ INSERT INTO `barangays` (`id`, `barangay_name`) VALUES
   (31, 'VIRGINIA')
 ON DUPLICATE KEY UPDATE `barangay_name` = VALUES(`barangay_name`);
 
+-- Known Punong Barangay (certificate signatory). Only fills an empty value, so a
+-- name changed later under Admin > Barangays is never overwritten.
+UPDATE `barangays` SET `punong_barangay` = 'Benjie Vincent R. Pagurayan'
+ WHERE `id` = 10 AND (`punong_barangay` IS NULL OR `punong_barangay` = '');
+
 -- -----------------------------------------------------------------------------
 -- Bootstrap administrator.
 --   username: admin

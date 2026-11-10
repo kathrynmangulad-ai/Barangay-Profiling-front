@@ -36,6 +36,9 @@ DROP TABLE IF EXISTS `barangays`;
 CREATE TABLE `barangays` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `barangay_name` varchar(150) NOT NULL,
+  -- Name of the sitting Punong Barangay (e.g. "Benjie Vincent R. Pagurayan"),
+  -- printed as the signatory on certificates. Set it under Admin > Barangays.
+  `punong_barangay` varchar(150) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `barangay_name` (`barangay_name`)
@@ -145,6 +148,8 @@ CREATE TABLE `document_requests` (
   `processed_at` datetime DEFAULT NULL,
   `decision_note` varchar(255) DEFAULT NULL,
   `notes` text DEFAULT NULL,
+  -- Extra document-specific inputs as JSON (e.g. animals on an Animal Travel Pass).
+  `details` text DEFAULT NULL,
   `control_no` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_docs_barangay` (`barangay_id`),

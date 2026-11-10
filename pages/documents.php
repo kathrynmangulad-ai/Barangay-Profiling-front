@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../config/config.php';
 require_staff();
+require_once BASE_PATH . '/includes/document_details.php';
 
 $page_title = 'Document Requests';
 
@@ -28,39 +29,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $notes          = trim($_POST['notes'] ?? '');
 
 
-     
-    if (
+    $details = details_from_post($document_type, $detailsError);
+
+    if ($detailsError !== null) {
+
+        $error = $detailsError;
+
+    } elseif (
         $barangay_id > 0 &&
         $requestor_name !== '' &&
         $document_type !== '' &&
         $purpose !== ''
     ) {
 
-        $stmt = $conn->prepare("
-            INSERT INTO document_requests
-            (
-                barangay_id,
-                requestor_name,
-                document_type,
-                purpose,
-                notes,
-                status
-            )
-            VALUES (?, ?, ?, ?, ?, 'Pending')
-        ");
-
-        if ($stmt === false) {
-            die("Prepare Error: " . $conn->error);
+        if (details_column_exists($conn)) {
+            $stmt = $conn->prepare("
+                INSERT INTO document_requests
+                    (barangay_id, requestor_name, document_type, purpose, notes, details, status)
+                VALUES (?, ?, ?, ?, ?, ?, 'Pending')
+            ");
+            $stmt->bind_param("isssss", $barangay_id, $requestor_name, $document_type, $purpose, $notes, $details);
+        } else {
+            $stmt = $conn->prepare("
+                INSERT INTO document_requests
+                    (barangay_id, requestor_name, document_type, purpose, notes, status)
+                VALUES (?, ?, ?, ?, ?, 'Pending')
+            ");
+            $stmt->bind_param("issss", $barangay_id, $requestor_name, $document_type, $purpose, $notes);
         }
-
-        $stmt->bind_param(
-            "issss",
-            $barangay_id,
-            $requestor_name,
-            $document_type,
-            $purpose,
-            $notes
-        );
 
         if ($stmt->execute()) {
 
@@ -236,6 +232,26 @@ if (isset($_GET['saved']) && $_GET['saved'] == '1') {
     </div>
 
 <?php
+}
+
+// Just released (actions/release_document.php): confirm it and offer printing.
+$released_id = (int)($_GET['released'] ?? 0);
+if ($released_id > 0) {
+    $rq = $conn->prepare('SELECT id, barangay_id, requestor_name, document_type, status FROM document_requests WHERE id = ?');
+    $rq->bind_param('i', $released_id);
+    $rq->execute();
+    $rel = $rq->get_result()->fetch_assoc();
+    $rq->close();
+    if ($rel && $rel['status'] === 'Released' && can_access_barangay($rel['barangay_id'])) {
+?>
+
+    <div class="alert alert-success" role="status" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <span><strong>Released:</strong> <?= e($rel['document_type']) ?> for <?= e($rel['requestor_name']) ?>.</span>
+        <a class="btn btn-success" href="<?= e(url('pages/document_print.php?id=' . (int)$rel['id'])) ?>">View / Print</a>
+    </div>
+
+<?php
+    }
 }
 
 
@@ -434,6 +450,8 @@ if (isset($error)) {
 
              
 
+            <?= details_fields_html(isset($error) ? $_POST : []) ?>
+
             <div class="full">
 
                 <label>Notes</label>
@@ -563,7 +581,6 @@ if (isset($error)) {
                             <a
                                 href="<?= e(url('actions/release_document.php?id=' . $r['id'] . '&token=' . csrf_token())) ?>"
                                 class="btn btn-success"
-                                target="_blank"
                                 data-confirm="Release this document now?"
                                 data-confirm-title="Release document"
                             >
@@ -575,7 +592,6 @@ if (isset($error)) {
                             <a
                                 href="<?= e(url('actions/release_document.php?id=' . $r['id'] . '&token=' . csrf_token())) ?>"
                                 class="btn btn-success"
-                                target="_blank"
                                 data-confirm="Release this document now?"
                                 data-confirm-title="Release document"
                             >
@@ -587,7 +603,6 @@ if (isset($error)) {
                             <a
                                 href="<?= e(url('pages/document_print.php?id=' . $r['id'])) ?>"
                                 class="btn btn-success"
-                                target="_blank"
                             >
                                 View / Print
                             </a>

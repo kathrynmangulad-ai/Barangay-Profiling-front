@@ -146,8 +146,7 @@ include BASE_PATH . '/partials/header.php';
                             <span class="badge"><?= e($d['status']) ?></span>
                             &middot; <?= e($d['requested_at'] ? date('M j, Y', strtotime($d['requested_at'])) : '') ?>
                             <?php if ($d['status'] === 'Released'): ?>
-                                &middot; <a href="<?= e(url('pages/document_print.php?id=' . (int)$d['id'])) ?>"
-                                      target="_blank" rel="noopener">View / Print</a>
+                                &middot; <a href="<?= e(url('pages/document_print.php?id=' . (int)$d['id'])) ?>">View / Print</a>
                             <?php endif; ?>
                         </span>
                     </li>

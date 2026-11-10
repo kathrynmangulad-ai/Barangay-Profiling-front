@@ -39,7 +39,7 @@ $sql = "
         b.barangay_name
     FROM document_requests dr
     LEFT JOIN barangays b ON b.id = dr.barangay_id
-    WHERE dr.document_type = 'Barangay Clearance' $scopeSql
+    WHERE LOWER(TRIM(dr.document_type)) = 'barangay clearance' $scopeSql
 ";
 
 $types = '';
@@ -177,7 +177,6 @@ include BASE_PATH . '/partials/header.php';
                             <a
                                 class="btn btn-success btn--ghost"
                                 href="<?= e(url('documents/clearance_generate.php?request_id=' . (int)$c['id'])) ?>"
-                                target="_blank"
                             >
                                 View / Print
                             </a>

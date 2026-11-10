@@ -10,6 +10,7 @@
 
 require_once __DIR__ . '/../config/config.php';
 require_role(['resident']);
+require_once BASE_PATH . '/includes/document_details.php';
 
 $page_title = 'Request Document';
 $page_crumb = 'Request Document';
@@ -34,16 +35,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($document_type === '' || $purpose === '') {
         $error = 'Please complete all required fields.';
 
+    } elseif (($details = details_from_post($document_type, $detailsError)) === null && $detailsError !== null) {
+        $error = $detailsError;
+
     } else {
         $requestor_name = $me['full_name'];
-
-        $stmt = $conn->prepare(
-            'INSERT INTO document_requests
-                (barangay_id, resident_id, requestor_name, document_type, purpose, notes, status)
-             VALUES (?,?,?,?,?,?,?)'
-        );
         $status = 'Pending';
-        $stmt->bind_param('iisssss', $bid, $rid, $requestor_name, $document_type, $purpose, $notes, $status);
+
+        if (details_column_exists($conn)) {
+            $stmt = $conn->prepare(
+                'INSERT INTO document_requests
+                    (barangay_id, resident_id, requestor_name, document_type, purpose, notes, details, status)
+                 VALUES (?,?,?,?,?,?,?,?)'
+            );
+            $stmt->bind_param('iissssss', $bid, $rid, $requestor_name, $document_type, $purpose, $notes, $details, $status);
+        } else {
+            $stmt = $conn->prepare(
+                'INSERT INTO document_requests
+                    (barangay_id, resident_id, requestor_name, document_type, purpose, notes, status)
+                 VALUES (?,?,?,?,?,?,?)'
+            );
+            $stmt->bind_param('iisssss', $bid, $rid, $requestor_name, $document_type, $purpose, $notes, $status);
+        }
 
         if ($stmt->execute()) {
             $stmt->close();
@@ -56,10 +69,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
  
-$types = [];
+// Suggestions: the standard document types (same list as the staff form),
+// plus any other type already on file.
+$types = ['Barangay Clearance', 'Certificate of Residency', 'Certificate of Indigency',
+          'Certification of Good Moral', 'Business Clearance', 'Barangay Permit',
+          'Affidavit of Solo Parent', 'Animal Travel Pass', 'Certification'];
 $t = $conn->query("SELECT DISTINCT document_type FROM document_requests
                     WHERE document_type <> '' ORDER BY document_type ASC");
-if ($t) { while ($x = $t->fetch_assoc()) { $types[] = $x['document_type']; } }
+if ($t) { while ($x = $t->fetch_assoc()) { if (!in_array($x['document_type'], $types, true)) { $types[] = $x['document_type']; } } }
 
 /* Full history of this resident's filed requests (moved here from
  * resident_profile.php so the request page shows form + history together). */
@@ -111,7 +128,8 @@ include BASE_PATH . '/partials/header.php';
             <div>
                 <label for="document_type">Document Type <span aria-hidden="true">*</span></label>
                 <input id="document_type" name="document_type" required maxlength="100"
-                       list="document-types" placeholder="e.g. Barangay Clearance">
+                       list="document-types" placeholder="e.g. Barangay Clearance"
+                       value="<?= $error !== '' ? e($_POST['document_type'] ?? '') : '' ?>">
                 <datalist id="document-types">
                     <?php foreach ($types as $ty): ?>
                         <option value="<?= e($ty) ?>"></option>
@@ -122,13 +140,16 @@ include BASE_PATH . '/partials/header.php';
             <div>
                 <label for="purpose">Purpose <span aria-hidden="true">*</span></label>
                 <input id="purpose" name="purpose" required maxlength="255"
-                       placeholder="Why you need this document">
+                       placeholder="Why you need this document"
+                       value="<?= $error !== '' ? e($_POST['purpose'] ?? '') : '' ?>">
             </div>
+
+            <?= details_fields_html($error !== '' ? $_POST : []) ?>
 
             <div class="full">
                 <label for="notes">Additional Notes</label>
                 <textarea id="notes" name="notes" rows="4"
-                          placeholder="Optional details for the barangay office"></textarea>
+                          placeholder="Optional details for the barangay office"><?= $error !== '' ? e($_POST['notes'] ?? '') : '' ?></textarea>
             </div>
         </div>
 
@@ -158,8 +179,7 @@ document.getElementById('docNewBtn').addEventListener('click', function () {
                 <td><?= e($d['requested_at'] ? date('M j, Y', strtotime($d['requested_at'])) : '-') ?></td>
                 <td>
                     <?php if ($d['status'] === 'Released'): ?>
-                        <a class="btn btn--ghost" href="<?= e(url('pages/document_print.php?id=' . (int)$d['id'])) ?>"
-                           target="_blank" rel="noopener">View / Print</a>
+                        <a class="btn btn--ghost" href="<?= e(url('pages/document_print.php?id=' . (int)$d['id'])) ?>">View / Print</a>
                     <?php else: ?>
                         <span class="muted-meta">Available once released</span>
                     <?php endif; ?>

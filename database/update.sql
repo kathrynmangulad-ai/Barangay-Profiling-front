@@ -139,6 +139,20 @@ ALTER TABLE `document_requests`
   ADD COLUMN IF NOT EXISTS `decision_note` varchar(255) DEFAULT NULL AFTER `processed_at`;
 ALTER TABLE `document_requests`
   ADD INDEX IF NOT EXISTS `idx_docs_processed_by` (`processed_by`);
+-- Control number printed on generated certificates (e.g. COGN-2026-001).
+ALTER TABLE `document_requests`
+  ADD COLUMN IF NOT EXISTS `control_no` varchar(50) DEFAULT NULL AFTER `notes`;
+-- Extra document-specific inputs as JSON (e.g. animals on an Animal Travel Pass).
+ALTER TABLE `document_requests`
+  ADD COLUMN IF NOT EXISTS `details` text DEFAULT NULL AFTER `notes`;
+
+-- -----------------------------------------------------------------------------
+-- barangays : the Punong Barangay printed as the certificate signatory
+-- -----------------------------------------------------------------------------
+ALTER TABLE `barangays`
+  ADD COLUMN IF NOT EXISTS `punong_barangay` varchar(150) DEFAULT NULL AFTER `barangay_name`;
+UPDATE `barangays` SET `punong_barangay` = 'Benjie Vincent R. Pagurayan'
+ WHERE `barangay_name` = 'CENTRO SUR' AND (`punong_barangay` IS NULL OR `punong_barangay` = '');
 
 -- -----------------------------------------------------------------------------
 -- blotter_records : review columns added over time

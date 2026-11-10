@@ -72,14 +72,42 @@ if (is_resident()) {
     log_access('document_printed', 'document_request', $id);
 }
 
-// Document is Released -> hand off to the appropriate generator
+// Document is Released -> hand off to the dedicated generator for the types
+// that have one. Every other type falls through to the templates below.
 if ((string)$request['status'] === 'Released') {
-    if ((string)$request['document_type'] === 'Barangay Clearance') {
+    $doc_type = (string)$request['document_type'];
+    if (preg_match('/^\s*barangay\s+clearance\s*$/i', $doc_type)) {
         header('Location: ' . url('documents/clearance_generate.php?request_id=' . $id));
-    } else {
-        header('Location: ' . url('documents/good_moral_certificate.php?request_id=' . $id));
+        exit;
     }
-    exit;
+    if (preg_match('/good\s*moral/i', $doc_type)) {
+        header('Location: ' . url('documents/good_moral_certificate.php?request_id=' . $id));
+        exit;
+    }
+    if (preg_match('/\bresiden(cy|ce)\b/i', $doc_type)) {
+        header('Location: ' . url('documents/residency_certificate.php?request_id=' . $id));
+        exit;
+    }
+    if (preg_match('/\bindigen(cy|t)\b/i', $doc_type)) {
+        header('Location: ' . url('documents/indigency_certificate.php?request_id=' . $id));
+        exit;
+    }
+    if (preg_match('/animal|travel\s*pass/i', $doc_type)) {
+        header('Location: ' . url('documents/animal_travel_pass.php?request_id=' . $id));
+        exit;
+    }
+    if (preg_match('/\bpermit\b/i', $doc_type)) {
+        header('Location: ' . url('documents/permit_certificate.php?request_id=' . $id));
+        exit;
+    }
+    if (preg_match('/solo\s*parent/i', $doc_type)) {
+        header('Location: ' . url('documents/solo_parent_certificate.php?request_id=' . $id));
+        exit;
+    }
+    if (preg_match('/^\s*certification\s*$/i', $doc_type)) {
+        header('Location: ' . url('documents/certification.php?request_id=' . $id));
+        exit;
+    }
 }
 
 
