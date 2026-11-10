@@ -18,13 +18,13 @@ if ($view_id > 0) {
         include BASE_PATH.'/partials/footer.php'; return;
     }
     $page_title='Household '.(string)$hh['household_no'];
-    $ms=$conn->prepare("SELECT r.id, r.first_name, r.last_name, r.middle_name, r.age, r.sex, r.civil_status, r.contact_no, r.created_at
+    $ms=$conn->prepare("SELECT r.id, r.first_name, r.last_name, r.middle_name, r.suffix, r.age, r.sex, r.civil_status, r.contact_no, r.created_at
                           FROM residents r
                          WHERE r.household_id=? AND r.deleted_at IS NULL
                          ORDER BY (r.id = ?) DESC, r.last_name ASC, r.first_name ASC");
     $members=[]; $head_name='-';
     if($ms){ $hid=(int)$hh['id']; $headId=(int)($hh['head_resident_id']??0); $ms->bind_param('ii',$hid,$headId); $ms->execute(); $members=$ms->get_result()->fetch_all(MYSQLI_ASSOC); $ms->close(); }
-    foreach($members as $m){ if((int)$m['id']===(int)($hh['head_resident_id']??0)){ $head_name=trim($m['first_name'].' '.$m['last_name']); break; } }
+    foreach($members as $m){ if((int)$m['id']===(int)($hh['head_resident_id']??0)){ $head_name=trim($m['first_name'].' '.$m['last_name'].' '.$m['suffix']); break; } }
     $cell = function ($v) { $s = trim((string)($v ?? '')); return $s === '' ? '-' : e($s); };
     include BASE_PATH . '/partials/header.php';?>
     <div class="toolbar">
@@ -49,7 +49,7 @@ if ($view_id > 0) {
             <tr><td colspan="7" class="muted-meta">No live members in this household.</td></tr>
         <?php else: foreach($members as $m):
             $isHead=((int)$m['id']===(int)($hh['head_resident_id']??0));
-            $nm=trim($m['last_name'].', '.$m['first_name'].' '.$m['middle_name'],', ');
+            $nm=resident_name($m);
         ?>
             <tr>
                 <td><?= e($nm) ?></td>
@@ -69,7 +69,7 @@ if ($view_id > 0) {
 // One row per live household with its head of the family and live member count.
 $sql="SELECT h.id, h.household_no, h.purok, h.head_resident_id, h.created_at,
              b.barangay_name,
-             hd.first_name AS head_first, hd.last_name AS head_last, hd.deleted_at AS head_deleted,
+             hd.first_name AS head_first, hd.last_name AS head_last, hd.suffix AS head_suffix, hd.deleted_at AS head_deleted,
              COALESCE(m.members,0) AS members
         FROM households h
         JOIN barangays b ON b.id=h.barangay_id
@@ -153,7 +153,7 @@ include BASE_PATH . '/partials/header.php';?>
                 && ($r['head_first'] !== null || $r['head_last'] !== null)
                 && ($r['head_deleted'] === null);
         if (!$hasHead) { $headless++; }
-        $head_name = trim((string)($r['head_first'] ?? '') . ' ' . (string)($r['head_last'] ?? ''));
+        $head_name = trim((string)($r['head_first'] ?? '') . ' ' . (string)($r['head_last'] ?? '') . ' ' . (string)($r['head_suffix'] ?? ''));
     ?>
     <tr>
         <td style="white-space:nowrap"><strong><?= e($r['household_no']) ?></strong></td>

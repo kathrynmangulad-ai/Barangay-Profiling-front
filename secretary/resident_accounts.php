@@ -190,7 +190,7 @@ if (isset($_GET['blocked'])) {
 $pending = [];
 $pq = $conn->prepare(
     "SELECT u.id, u.username, u.full_name, u.created_at, u.email AS account_email,
-            r.id AS resident_id, r.last_name, r.first_name, r.middle_name, r.age, r.email AS resident_email, r.photo
+            r.id AS resident_id, r.last_name, r.first_name, r.middle_name, r.suffix, r.age, r.email AS resident_email, r.photo
        FROM users u
        LEFT JOIN residents r ON r.user_id = u.id
       WHERE u.deleted_at IS NULL AND u.status = 'pending' AND u.role = 'resident' AND u.barangay_id = ?
@@ -209,7 +209,7 @@ $pq->close();
 $accounts = [];
 $aq = $conn->prepare(
     "SELECT u.id, u.username, u.full_name, u.status, u.created_at, u.email AS account_email,
-            r.id AS resident_id, r.last_name, r.first_name, r.middle_name, r.age, r.email AS resident_email, r.photo
+            r.id AS resident_id, r.last_name, r.first_name, r.middle_name, r.suffix, r.age, r.email AS resident_email, r.photo
        FROM users u
        LEFT JOIN residents r ON r.user_id = u.id
       WHERE u.deleted_at IS NULL AND u.role = 'resident' AND u.barangay_id = ? AND u.status <> 'pending'
@@ -279,7 +279,7 @@ include BASE_PATH . '/partials/header.php';
             <td style="text-align:center"><?php if ($p_photo !== '' && @file_exists(BASE_PATH . '/' . $p_photo)): ?><img src="<?= e(url($p_photo)) ?>" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:50%;display:block;margin:0 auto"><?php else: ?><span class="muted-meta">&mdash;</span><?php endif; ?></td>
             <td><?= e($p['username']) ?></td>
             <td>
-                <?= e(trim(($p['last_name'] ?? '') . ', ' . ($p['first_name'] ?? '') . ' ' . ($p['middle_name'] ?? ''), ', ')) ?>
+                <?= e(resident_name($p)) ?>
                 <?php if (empty($p['resident_id'])): ?>
                     <br><span class="muted-meta">No linked resident record yet</span>
                 <?php elseif ((int)($p['age'] ?? 0) === 0): ?>
@@ -313,7 +313,7 @@ include BASE_PATH . '/partials/header.php';
         <tr>
             <td style="text-align:center"><?php if ($a_photo !== '' && @file_exists(BASE_PATH . '/' . $a_photo)): ?><img src="<?= e(url($a_photo)) ?>" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:50%;display:block;margin:0 auto"><?php else: ?><span class="muted-meta">&mdash;</span><?php endif; ?></td>
             <td><?= e($a['username']) ?></td>
-            <td><?= e(trim(($a['last_name'] ?? '') . ', ' . ($a['first_name'] ?? '') . ' ' . ($a['middle_name'] ?? ''), ', ')) ?></td>
+            <td><?= e(resident_name($a)) ?></td>
             <td><?= $a_email !== '' ? e($a_email) : '<span class="muted-meta">&mdash;</span>' ?></td>
             <td><span class="badge badge--<?= e($a['status']) ?>"><?= e(ucfirst($a['status'])) ?></span></td>
             <td><?= e($a['created_at'] ? date('M j, Y', strtotime($a['created_at'])) : '-') ?></td>

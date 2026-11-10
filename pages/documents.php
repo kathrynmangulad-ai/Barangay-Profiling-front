@@ -396,6 +396,22 @@ if (isset($error)) {
                         Animal Travel Pass
                     </option>
 
+                    <option value="Barangay Permit">
+                        Barangay Permit
+                    </option>
+
+                    <option value="Affidavit of Solo Parent">
+                        Affidavit of Solo Parent
+                    </option>
+
+                    <option value="Certification of Good Moral">
+                        Certification of Good Moral
+                    </option>
+
+                    <option value="Certification">
+                        Certification
+                    </option>
+
                 </select>
 
             </div>

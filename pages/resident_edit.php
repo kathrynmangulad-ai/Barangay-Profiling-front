@@ -63,6 +63,7 @@ if($_SERVER['REQUEST_METHOD']==='POST')
         $last_name    = trim($_POST['last_name'] ?? '');
         $first_name   = trim($_POST['first_name'] ?? '');
         $middle_name  = trim($_POST['middle_name'] ?? '');
+        $suffix       = trim($_POST['suffix'] ?? '');
         $email        = trim($_POST['email'] ?? '');
         $sex          = trim($_POST['sex'] ?? '');
         // Age is computed from the birth date, never trusted from the form.
@@ -107,7 +108,17 @@ if($_SERVER['REQUEST_METHOD']==='POST')
         }
 
         $account_id = (int)($r['account_id'] ?? 0);
-        if ($error === '' && $email !== '' && (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255)) {
+        // Names must not contain numbers (rejects "Juan2", "III 3", etc.).
+        $name_fields = ['last_name' => 'Last Name', 'first_name' => 'First Name', 'middle_name' => 'Middle Name', 'suffix' => 'Suffix'];
+        foreach ($name_fields as $nfield => $nlabel) {
+            if ($$nfield !== '' && preg_match('/\d/', $$nfield)) {
+                $error = $nlabel . ' must not contain numbers. Please use letters only.';
+                break;
+            }
+        }
+        if ($error === '' && strlen($suffix) > 20) {
+            $error = 'Suffix is too long (max 20 characters).';
+        } elseif ($error === '' && $email !== '' && (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255)) {
             $error = 'Please enter a valid email address.';
         } elseif ($error === '' && $email !== '' && $account_id > 0 && users_has_email_column($conn)) {
             $ck = $conn->prepare('SELECT id FROM users WHERE email=? AND id<>? AND deleted_at IS NULL LIMIT 1');
@@ -173,12 +184,12 @@ if($_SERVER['REQUEST_METHOD']==='POST')
         $email_val = ($email !== '') ? $email : null;
         $conn->begin_transaction();
         try {
-        $stmt=$conn->prepare("UPDATE residents SET photo=?,last_name=?,first_name=?,middle_name=?,
+        $stmt=$conn->prepare("UPDATE residents SET photo=?,last_name=?,first_name=?,middle_name=?,suffix=?,
         sex=?,age=?,birth_date=?,civil_status=?,occupation=?,contact_no=?,email=?,address=?,is_pwd=?,
         is_student=?  WHERE id=?");
 
-        $stmt->bind_param('sssssissssssssi',
-            $photo, $last_name, $first_name, $middle_name, $sex,
+        $stmt->bind_param('ssssssissssssssi',
+            $photo, $last_name, $first_name, $middle_name, $suffix, $sex,
             $age, $birth_date_v, $civil_status, $occupation, $contact_no,
             $email_val, $address, $is_pwd, $is_student, $id);
 
@@ -255,6 +266,7 @@ if($_SERVER['REQUEST_METHOD']==='POST')
     $r['last_name']    = $last_name;
     $r['first_name']   = $first_name;
     $r['middle_name']  = $middle_name;
+    $r['suffix']       = $suffix;
     $r['email']        = $email;
     $r['account_email'] = $email;
     $r['sex']          = $sex;
@@ -279,9 +291,10 @@ include BASE_PATH . '/partials/header.php';?>
 <?php if ($error !== ''): ?><div class="alert alert-danger" role="alert"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
 <form method="post" enctype="multipart/form-data"><?= csrf_field() ?><div class="form-grid">
-    <div><label for="last_name">Last Name</label><input id="last_name" name="last_name" value="<?=e($r['last_name'])?>" required></div>
-    <div><label for="first_name">First Name</label><input id="first_name" name="first_name" value="<?=e($r['first_name'])?>" required></div>
-    <div><label for="middle_name">Middle Name</label><input id="middle_name" name="middle_name" value="<?=e($r['middle_name']) ?>"></div>
+    <div><label for="last_name">Last Name</label><input id="last_name" name="last_name" value="<?=e($r['last_name'])?>" required pattern="[^\d]*" title="Letters only - no numbers"></div>
+    <div><label for="first_name">First Name</label><input id="first_name" name="first_name" value="<?=e($r['first_name'])?>" required pattern="[^\d]*" title="Letters only - no numbers"></div>
+    <div><label for="middle_name">Middle Name</label><input id="middle_name" name="middle_name" value="<?=e($r['middle_name']) ?>" pattern="[^\d]*" title="Letters only - no numbers"></div>
+    <div><label for="suffix">Suffix</label><input id="suffix" name="suffix" maxlength="20" pattern="[^\d]*" title="Letters only - no numbers" placeholder="e.g. Jr., Sr., III" value="<?=e($r['suffix'] ?? '') ?>"><p class="field-hint">Generational suffix after the name (optional). Letters only, no numbers.</p></div>
     <div><label for="email">Email address</label><input id="email" type="email" name="email" maxlength="255" autocomplete="email" value="<?=e($r['email'] ?? ($r['account_email'] ?? '')) ?>" placeholder="Contact email (optional)"></div>
     <div>
         <label for="sex">Sex</label>
@@ -375,6 +388,24 @@ include BASE_PATH . '/partials/header.php';?>
     }
     radios.forEach(function (r) { r.addEventListener('change', sync); });
     sync();
+
+    // Names are letters only - strip any digit as it is typed, pasted or dropped in.
+    ['last_name', 'first_name', 'middle_name', 'suffix'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) { return; }
+        el.addEventListener('input', function () {
+            var v = el.value;
+            var cleaned = v.replace(/[0-9]/g, '');
+            if (cleaned !== v) {
+                var at = el.selectionStart;
+                var dropped = 0;
+                for (var i = 0; i < v.length && i < at; i++) { if (v[i] >= '0' && v[i] <= '9') { dropped++; } }
+                el.value = cleaned;
+                var pos = Math.max(0, at - dropped);
+                try { el.setSelectionRange(pos, pos); } catch (e) {}
+            }
+        });
+    });
 })();
 </script>
 <?php include BASE_PATH . '/partials/footer.php';

@@ -41,9 +41,32 @@ if (isset($_GET['action'], $_GET['id'])) {
 
     if (isset($status_for[$action])) {
         $new  = $status_for[$action];
+
+        // Fetch the target's contact details BEFORE updating, so we can
+        // notify them by email after an approval/activation.
+        $target_email = '';
+        $target_name  = '';
+        $target_user  = '';
+        $target_brgy  = '';
+        if ($tq = $conn->prepare('SELECT u.username, u.full_name, u.role, u.email AS account_email, r.email AS resident_email, b.barangay_name FROM users u LEFT JOIN residents r ON r.user_id = u.id AND r.deleted_at IS NULL LEFT JOIN barangays b ON b.id = u.barangay_id WHERE u.id = ? AND u.deleted_at IS NULL LIMIT 1')) {
+            $tq->bind_param('i', $uid);
+            $tq->execute();
+            $trow = $tq->get_result()->fetch_assoc();
+            $tq->close();
+            if ($trow) {
+                $target_email = trim((string)($trow['account_email'] ?? '')) !== ''
+                    ? (string)$trow['account_email']
+                    : (string)($trow['resident_email'] ?? '');
+                $target_name = (string)($trow['full_name'] ?? '');
+                $target_user = (string)($trow['username'] ?? '');
+                $target_brgy = (string)($trow['barangay_name'] ?? '');
+            }
+        }
+
         $stmt = $conn->prepare('UPDATE users SET status=? WHERE id=?');
         $stmt->bind_param('si', $new, $uid);
-        $stmt->execute();
+        $ran = $stmt->execute();
+        $ok  = $ran ? ($stmt->affected_rows > 0) : false;
         $stmt->close();
 
         
@@ -67,7 +90,26 @@ if (isset($_GET['action'], $_GET['id'])) {
         }
 
         log_access('user_status_' . $action, 'user', $uid);
-        redirect(url('admin/users.php?notice=' . rawurlencode($action) . '&tab=' . rawurlencode($land)));
+
+        // On approval/activation, notify the user by email (if we have one).
+        $mail_flag = '';
+        if ($ok && $new === 'active' && in_array($action, ['approve', 'activate'], true)) {
+            if ($target_email !== '' && mail_is_configured()) {
+                $sent = mail_send_account_approved(
+                    $target_email,
+                    $target_name,
+                    $target_user,
+                    $target_brgy
+                );
+                $mail_flag = $sent ? '&mailed=1' : '&mailed=0';
+                log_access($sent ? 'user_approved_emailed' : 'user_approved_email_failed', 'user', $uid, $sent ? 'allowed' : 'denied');
+            } else {
+                $mail_flag = '&mailed=0';
+                log_access('user_approved_no_email', 'user', $uid, 'denied');
+            }
+        }
+
+        redirect(url('admin/users.php?notice=' . rawurlencode($action) . '&tab=' . rawurlencode($land) . $mail_flag));
     }
 
     if ($action === 'restore') {
@@ -148,6 +190,12 @@ $notices = [
 ];
 if (isset($_GET['notice'])) {
     $notice = $notices[$_GET['notice']] ?? '';
+    // Append email status to the approve/activate notice.
+    if (in_array($_GET['notice'], ['approve', 'activate'], true) && isset($_GET['mailed'])) {
+        $notice .= ($_GET['mailed'] === '1')
+            ? ' A notification email was sent to the user.'
+            : ' (No email on file or email could not be sent.)';
+    }
 }
 
 

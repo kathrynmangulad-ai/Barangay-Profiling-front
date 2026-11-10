@@ -97,6 +97,8 @@ CREATE TABLE `residents` (
   `last_name` varchar(255) NOT NULL,
   `first_name` varchar(100) NOT NULL,
   `middle_name` varchar(100) DEFAULT NULL,
+  -- generational suffix (Jr., Sr., III, ...) shown after the name.
+  `suffix` varchar(20) DEFAULT NULL,
   `sex` varchar(20) DEFAULT NULL,
   `age` int(11) NOT NULL,
   `birth_date` date DEFAULT NULL,
@@ -143,6 +145,7 @@ CREATE TABLE `document_requests` (
   `processed_at` datetime DEFAULT NULL,
   `decision_note` varchar(255) DEFAULT NULL,
   `notes` text DEFAULT NULL,
+  `control_no` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_docs_barangay` (`barangay_id`),
   KEY `idx_docs_resident` (`resident_id`),

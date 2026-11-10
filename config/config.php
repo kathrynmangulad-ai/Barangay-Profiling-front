@@ -96,6 +96,47 @@ function e($value) { return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8'
 function redirect($url) { header('Location: '.$url); exit; }
 function is_logged_in() { return isset($_SESSION['user_id']); }
 
+if (!function_exists('auth_eye_button')) {
+    /** Render a toggle button that shows/hides a password input. */
+    function auth_eye_button($target) {
+        $t = e($target);
+        return '<button class="affix-btn" type="button" data-password-toggle="#' . $t . '"'
+             . ' aria-label="Show password" aria-pressed="false" title="Show password">'
+             . '<svg class="affix-btn__ico affix-btn__ico--show" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"'
+             . ' fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+             . '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>'
+             . '<svg class="affix-btn__ico affix-btn__ico--hide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"'
+             . ' fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+             . '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>'
+             . '<path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>'
+             . '<path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>'
+             . '<line x1="2" x2="22" y1="2" y2="22"></line></svg>'
+             . '</button>';
+    }
+}
+
+if (!function_exists('resident_name')) {
+    /**
+     * Build a resident's display name from a residents row.
+     * Returns "Last, First Middle Suffix" with empty parts dropped, e.g.
+     * "Dela Cruz, Juan Miguel Jr." or just "Dela Cruz" when only a last name
+     * is known. Tolerates rows that have no suffix key (older queries).
+     */
+    function resident_name($row) {
+        if (!is_array($row)) { return ''; }
+        $last   = trim((string)($row['last_name']   ?? ''));
+        $first  = trim((string)($row['first_name']  ?? ''));
+        $middle = trim((string)($row['middle_name'] ?? ''));
+        $suffix = trim((string)($row['suffix']      ?? ''));
+        // Join only the parts that are actually present so no double spaces
+        // appear when a middle name or suffix is blank.
+        $tail   = trim(implode(' ', array_filter([$first, $middle, $suffix], 'strlen')));
+        if ($tail === '') { return $last; }
+        if ($last === '') { return $tail; }
+        return $last . ', ' . $tail;
+    }
+}
+
 function require_login() {
     if (!is_logged_in()) { redirect(url('auth/login.php')); }
 
@@ -265,7 +306,7 @@ function households_options($conn, $barangay_id) {
     $out = [];
     $sql = "SELECT h.id, h.household_no, h.head_resident_id,
                    CASE WHEN hd.id IS NULL OR hd.deleted_at IS NOT NULL THEN NULL
-                        ELSE CONCAT_WS(' ', hd.first_name, hd.last_name) END AS head_name,
+                        ELSE CONCAT_WS(' ', hd.first_name, hd.last_name, hd.suffix) END AS head_name,
                    COALESCE(m.members, 0) AS members
               FROM households h
               LEFT JOIN residents hd ON hd.id = h.head_resident_id

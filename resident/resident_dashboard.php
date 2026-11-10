@@ -121,7 +121,7 @@ include BASE_PATH . '/partials/header.php';
         <div class="kpi__top">
             <span class="kpi__icon" aria-hidden="true"><?= icon('user') ?></span>
         </div>
-        <p class="kpi__value" style="font-size:1.1rem;line-height:1.35;padding-top:.5rem"><?= e(trim($profile['last_name'] . ', ' . $profile['first_name'] . ' ' . $profile['middle_name'], ', ')) ?></p>
+        <p class="kpi__value" style="font-size:1.1rem;line-height:1.35;padding-top:.5rem"><?= e(resident_name($profile)) ?></p>
         <p class="kpi__title">My Profile</p>
         <p class="kpi__desc"><?= e($profile['barangay_name'] ?? 'Barangay not set') ?></p>
         <a class="kpi__link" href="<?= e(url('resident/resident_profile.php')) ?>">View my profile <?= icon('arrow-right', 'ico ico--xs') ?></a>

@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/mailer.php';
 if (is_logged_in()) { redirect(role_home($_SESSION['role'] ?? '')); }
 
 $error = '';
-$old   = ['first_name' => '', 'last_name' => '', 'middle_name' => '', 'username' => '', 'email' => '', 'barangay_id' => 0, 'household_no' => ''];
+$old   = ['first_name' => '', 'last_name' => '', 'middle_name' => '', 'suffix' => '', 'username' => '', 'email' => '', 'barangay_id' => 0, 'household_no' => ''];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf();
@@ -12,7 +12,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $first_name  = trim($_POST['first_name'] ?? '');
     $last_name   = trim($_POST['last_name'] ?? '');
     $middle_name = trim($_POST['middle_name'] ?? '');
-    $full_name   = trim($first_name . ' ' . $middle_name . ' ' . $last_name);
+    $suffix      = trim($_POST['suffix'] ?? '');
+    $full_name   = trim($first_name . ' ' . $middle_name . ' ' . $last_name . ' ' . $suffix);
     $username    = trim($_POST['username'] ?? '');
     $email       = trim($_POST['email'] ?? '');
     $barangay_id = (int)($_POST['barangay_id'] ?? 0);
@@ -23,11 +24,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // public form - new households are created only by the barangay office.
     $household_no = trim($_POST['household_no'] ?? '');
 
-    $old = ['first_name' => $first_name, 'last_name' => $last_name, 'middle_name' => $middle_name, 'username' => $username, 'email' => $email, 'barangay_id' => $barangay_id, 'household_no' => $household_no];
+    $old = ['first_name' => $first_name, 'last_name' => $last_name, 'middle_name' => $middle_name, 'suffix' => $suffix, 'username' => $username, 'email' => $email, 'barangay_id' => $barangay_id, 'household_no' => $household_no];
 
     if ($first_name === '' || $last_name === '' || $username === '' || $email === '' || $barangay_id <= 0 || $password === '' || $confirm === '') {
         $error = 'Please complete all required fields.';
 
+    } elseif (preg_match('/\d/', $first_name)) {
+        $error = 'First Name must not contain numbers. Please use letters only.';
+    } elseif (preg_match('/\d/', $last_name)) {
+        $error = 'Last Name must not contain numbers. Please use letters only.';
+    } elseif (preg_match('/\d/', $middle_name)) {
+        $error = 'Middle Name must not contain numbers. Please use letters only.';
+    } elseif (preg_match('/\d/', $suffix)) {
+        $error = 'Suffix must not contain numbers. Please use letters only.';
+    } elseif (strlen($suffix) > 20) {
+        $error = 'Suffix is too long (max 20 characters).';
     } elseif (strlen($first_name) > 100 || strlen($middle_name) > 100 || strlen($last_name) > 255 || strlen($full_name) > 150) {
         $error = 'One of the name fields is too long. Allowed: 100 characters for first and middle name, 255 for last name.';
 
@@ -129,6 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $first = $first_name;
                 $last  = $last_name;
                 $mid   = $middle_name;
+                $sfx   = $suffix;
 
                 
 
@@ -171,11 +183,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // is bound later by the secretary via Residents > Edit.
                     $rs  = $conn->prepare(
                         'INSERT INTO residents
-                            (barangay_id, last_name, first_name, middle_name, age, is_pwd, is_student, user_id)
-                         VALUES (?,?,?,?,?,?,?,?)'
+                            (barangay_id, last_name, first_name, middle_name, suffix, age, is_pwd, is_student, user_id)
+                         VALUES (?,?,?,?,?,?,?,?,?)'
                     );
                     $isPwd = 'No'; $isStu = 'No';
-                    $rs->bind_param('issssssi', $barangay_id, $last, $first, $mid, $age, $isPwd, $isStu, $uid);
+                    $rs->bind_param('isssssssi', $barangay_id, $last, $first, $mid, $sfx, $age, $isPwd, $isStu, $uid);
                     $okRes = $rs->execute();
                     $rs->close();
 
@@ -240,7 +252,8 @@ include BASE_PATH . '/partials/auth_top.php';
     <div class="field">
         <label for="first_name">First Name</label>
         <input id="first_name" type="text" name="first_name" required maxlength="100"
-               autocomplete="given-name" value="<?= e($old['first_name']) ?>"
+               autocomplete="given-name" pattern="[^\d]*" title="Letters only - no numbers"
+               value="<?= e($old['first_name']) ?>"
                <?= $error !== '' ? 'aria-invalid="true"' : '' ?>>
 
     </div>
@@ -248,15 +261,26 @@ include BASE_PATH . '/partials/auth_top.php';
     <div class="field">
         <label for="last_name">Last Name</label>
         <input id="last_name" type="text" name="last_name" required maxlength="255"
-               autocomplete="family-name" value="<?= e($old['last_name']) ?>"
+               autocomplete="family-name" pattern="[^\d]*" title="Letters only - no numbers"
+               value="<?= e($old['last_name']) ?>"
                <?= $error !== '' ? 'aria-invalid="true"' : '' ?>>
     </div>
 
     <div class="field">
         <label for="middle_name">Middle Name</label>
         <input id="middle_name" type="text" name="middle_name" maxlength="100"
-               autocomplete="additional-name" value="<?= e($old['middle_name']) ?>"
+               autocomplete="additional-name" pattern="[^\d]*" title="Letters only - no numbers"
+               value="<?= e($old['middle_name']) ?>"
                <?= $error !== '' ? 'aria-invalid="true"' : '' ?>>
+    </div>
+
+    <div class="field">
+        <label for="suffix">Suffix</label>
+        <input id="suffix" type="text" name="suffix" maxlength="20"
+               placeholder="e.g. Jr., Sr., III" pattern="[^\d]*" title="Letters only - no numbers"
+               value="<?= e($old['suffix']) ?>"
+               <?= $error !== '' ? 'aria-invalid="true"' : '' ?>>
+        <p class="field-hint">Generational suffix after your name (optional).</p>
     </div>
 
     <div class="field">
@@ -331,4 +355,26 @@ include BASE_PATH . '/partials/auth_top.php';
 </form>
 
 <p class="auth__alt">Already have an account? <a class="auth__link" href="<?= e(url('auth/login.php')) ?>">Sign in</a></p>
+
+<script>
+(function () {
+    // Names are letters only - strip any digit as it is typed, pasted or dropped in.
+    ['last_name', 'first_name', 'middle_name', 'suffix'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) { return; }
+        el.addEventListener('input', function () {
+            var v = el.value;
+            var cleaned = v.replace(/[0-9]/g, '');
+            if (cleaned !== v) {
+                var at = el.selectionStart;
+                var dropped = 0;
+                for (var i = 0; i < v.length && i < at; i++) { if (v[i] >= '0' && v[i] <= '9') { dropped++; } }
+                el.value = cleaned;
+                var pos = Math.max(0, at - dropped);
+                try { el.setSelectionRange(pos, pos); } catch (e) {}
+            }
+        });
+    });
+})();
+</script>
 <?php include BASE_PATH . '/partials/auth_bottom.php';

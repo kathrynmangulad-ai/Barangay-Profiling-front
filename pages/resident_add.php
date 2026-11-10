@@ -29,6 +29,7 @@ $old = [
     'last_name'    => '',
     'first_name'   => '',
     'middle_name'  => '',
+    'suffix'       => '',
     'sex'          => '',
     'age'          => '',
     'birth_date'   => '',
@@ -58,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $last_name    = trim($_POST['last_name'] ?? '');
     $first_name   = trim($_POST['first_name'] ?? '');
     $middle_name  = trim($_POST['middle_name'] ?? '');
+    $suffix       = trim($_POST['suffix'] ?? '');
     $sex          = trim($_POST['sex'] ?? '');
     // Note: age is never taken from user input - it is computed from the birth date below.
     $birth_date   = trim($_POST['birth_date'] ?? '');
@@ -113,6 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'last_name'    => $last_name,
         'first_name'   => $first_name,
         'middle_name'  => $middle_name,
+        'suffix'       => $suffix,
         'sex'          => $sex,
         'age'          => (string)$age,
         'birth_date'   => (string)($birth_date ?? ''),
@@ -158,6 +161,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($barangay_id <= 0) { $error_fields[] = 'barangay_id'; }
         if ($last_name === '') { $error_fields[] = 'last_name'; }
         if ($first_name === '') { $error_fields[] = 'first_name'; }
+    }
+
+    if ($error === '' && strlen($suffix) > 20) {
+        $error = 'Suffix is too long (max 20 characters).';
+        $error_fields[] = 'suffix';
+    }
+
+    // Names must not contain numbers (rejects "Juan2", "III 3", etc.).
+    $name_fields = ['last_name' => 'Last Name', 'first_name' => 'First Name', 'middle_name' => 'Middle Name', 'suffix' => 'Suffix'];
+    foreach ($name_fields as $nfield => $nlabel) {
+        if ($$nfield !== '' && preg_match('/\d/', $$nfield)) {
+            if ($error === '') { $error = $nlabel . ' must not contain numbers. Please use letters only.'; }
+            $error_fields[] = $nfield;
+        }
     }
 
     if ($error === '' && $email !== '' && (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255)) {
@@ -267,14 +284,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $stmt = $conn->prepare(
                 "INSERT INTO residents
-                 (barangay_id, last_name, first_name, middle_name, sex, age, birth_date,
+                 (barangay_id, last_name, first_name, middle_name, suffix, sex, age, birth_date,
                   civil_status, occupation, contact_no, email, address, photo, is_pwd, is_student)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             );
             if ($stmt === false) { throw new RuntimeException('prepare residents failed: ' . $conn->error); }
             $stmt->bind_param(
-                'issssisssssssss',
-                $barangay_id, $last_name, $first_name, $middle_name, $sex, $age, $birth_date,
+                'isssssisssssssss',
+                $barangay_id, $last_name, $first_name, $middle_name, $suffix, $sex, $age, $birth_date,
                 $civil_status, $occupation, $contact_no, $email_val, $address, $photo,
                 $is_pwd, $is_student
             );
@@ -325,7 +342,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      VALUES (?, ?, ?, ?, ?, ?, ?)"
                 );
                 if ($us === false) { throw new RuntimeException('prepare users failed: ' . $conn->error); }
-                $full_name = trim($first_name . ' ' . $last_name);
+                $full_name = trim($first_name . ' ' . $last_name . ' ' . $suffix);
                 $us->bind_param('sssssis', $username, $email_val, $hash, $full_name, $role, $barangay_id, $status);
                 if (!$us->execute()) { throw new RuntimeException('insert user failed: ' . $us->error); }
                 $new_user_id = (int)$conn->insert_id;
@@ -348,7 +365,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // showing them on screen if there's no email or the send fails.
                 $emailed = false;
                 if ($email_val !== null) {
-                    $full_name = trim($first_name . ' ' . $last_name);
+                    $full_name = trim($first_name . ' ' . $last_name . ' ' . $suffix);
                     $emailed = mail_send_credentials($email_val, $full_name, $username, $generated_password);
                 }
 
@@ -441,17 +458,23 @@ include BASE_PATH . '/partials/header.php';
 
             <div>
                 <label for="last_name">Last Name</label>
-                <input id="last_name" name="last_name" value="<?= e($old['last_name']) ?>" required<?= in_array('last_name', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
+                <input id="last_name" name="last_name" value="<?= e($old['last_name']) ?>" required pattern="[^\d]*" title="Letters only - no numbers"<?= in_array('last_name', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
             </div>
 
             <div>
                 <label for="first_name">First Name</label>
-                <input id="first_name" name="first_name" value="<?= e($old['first_name']) ?>" required<?= in_array('first_name', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
+                <input id="first_name" name="first_name" value="<?= e($old['first_name']) ?>" required pattern="[^\d]*" title="Letters only - no numbers"<?= in_array('first_name', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
             </div>
 
             <div>
                 <label for="middle_name">Middle Name</label>
-                <input id="middle_name" name="middle_name" value="<?= e($old['middle_name']) ?>">
+                <input id="middle_name" name="middle_name" value="<?= e($old['middle_name']) ?>" pattern="[^\d]*" title="Letters only - no numbers">
+            </div>
+
+            <div>
+                <label for="suffix">Suffix</label>
+                <input id="suffix" name="suffix" value="<?= e($old['suffix']) ?>" maxlength="20" pattern="[^\d]*" title="Letters only - no numbers" placeholder="e.g. Jr., Sr., III"<?= in_array('suffix', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
+                <p class="field-hint">Generational suffix after the name (optional). Letters only, no numbers.</p>
             </div>
 
             <div>
@@ -595,6 +618,24 @@ include BASE_PATH . '/partials/header.php';
     }
     radios.forEach(function (r) { r.addEventListener('change', sync); });
     sync();
+
+    // Names are letters only - strip any digit as it is typed, pasted or dropped in.
+    ['last_name', 'first_name', 'middle_name', 'suffix'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) { return; }
+        el.addEventListener('input', function () {
+            var v = el.value;
+            var cleaned = v.replace(/[0-9]/g, '');
+            if (cleaned !== v) {
+                var at = el.selectionStart;
+                var dropped = 0;
+                for (var i = 0; i < v.length && i < at; i++) { if (v[i] >= '0' && v[i] <= '9') { dropped++; } }
+                el.value = cleaned;
+                var pos = Math.max(0, at - dropped);
+                try { el.setSelectionRange(pos, pos); } catch (e) {}
+            }
+        });
+    });
 })();
 </script>
 

@@ -358,7 +358,7 @@ function time_ago($ts) {
 
 $activity = [];
 
-$as = $conn->prepare("SELECT id, CONCAT_WS(' ', first_name, last_name) nm, created_at ts FROM residents WHERE deleted_at IS NULL$resYear$scopeN ORDER BY created_at DESC LIMIT 5");
+$as = $conn->prepare("SELECT id, CONCAT_WS(' ', first_name, last_name, suffix) nm, created_at ts FROM residents WHERE deleted_at IS NULL$resYear$scopeN ORDER BY created_at DESC LIMIT 5");
 $as->bind_param($yTypes, ...$yParams);
 $as->execute();
 $asr = $as->get_result();

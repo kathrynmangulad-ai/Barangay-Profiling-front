@@ -310,7 +310,7 @@ include BASE_PATH . '/partials/header.php';
 <div class="card table-wrap">
     <table>
         <tr><th>Field</th><th>Value</th></tr>
-        <tr><td>Full Name</td><td><?= e(trim($profile['last_name'] . ', ' . $profile['first_name'] . ' ' . $profile['middle_name'], ', ')) ?></td></tr>
+        <tr><td>Full Name</td><td><?= e(resident_name($profile)) ?></td></tr>
         <tr><td>Email address</td><td><?= e($account_email !== '' ? $account_email : '-') ?></td></tr>
         <tr><td>Barangay</td><td><?= e($profile['barangay_name'] ?? 'Not set') ?></td></tr>
         <tr><td>Sex</td><td><?= e($profile['sex'] ?? '-') ?></td></tr>

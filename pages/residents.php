@@ -178,7 +178,7 @@ include BASE_PATH . '/partials/header.php';?>
             </span>
         </td>
          
-    <td><?= e(trim($r['last_name'] . ', ' . $r['first_name'] . ' ' . $r['middle_name'], ', ')) ?></td>
+    <td><?= e(resident_name($r)) ?></td>
     <td><?= $cell($r['barangay_name']) ?></td>
     <?php if(($_SESSION['role'] ?? '') !== 'admin'): ?><td><?= $cell($r['address'] ?? null) ?></td><?php endif; ?>
     <td style="white-space:nowrap"><?= $cell($r['age']) ?></td>

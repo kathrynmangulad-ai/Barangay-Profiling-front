@@ -61,6 +61,9 @@ CREATE TABLE IF NOT EXISTS `households` (
 -- -----------------------------------------------------------------------------
 ALTER TABLE `residents`
   ADD COLUMN IF NOT EXISTS `deleted_at` timestamp NULL DEFAULT NULL AFTER `updated_at`;
+-- Generational suffix (Jr., Sr., III, ...) part of the resident name.
+ALTER TABLE `residents`
+  ADD COLUMN IF NOT EXISTS `suffix` varchar(20) DEFAULT NULL AFTER `middle_name`;
 ALTER TABLE `residents`
   ADD COLUMN IF NOT EXISTS `email` varchar(255) DEFAULT NULL AFTER `contact_no`;
 ALTER TABLE `residents`

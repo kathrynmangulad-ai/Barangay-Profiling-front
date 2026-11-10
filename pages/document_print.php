@@ -72,6 +72,15 @@ if (is_resident()) {
     log_access('document_printed', 'document_request', $id);
 }
 
+// Document is Released -> hand off to the appropriate generator
+if ((string)$request['status'] === 'Released') {
+    if ((string)$request['document_type'] === 'Barangay Clearance') {
+        header('Location: ' . url('documents/clearance_generate.php?request_id=' . $id));
+    } else {
+        header('Location: ' . url('documents/good_moral_certificate.php?request_id=' . $id));
+    }
+    exit;
+}
 
 
  
