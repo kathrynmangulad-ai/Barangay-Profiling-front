@@ -8,6 +8,7 @@
 
 
 require_login();
+require_once __DIR__ . '/theme.php';
 
 $current    = basename($_SERVER['PHP_SELF'] ?? '');
 $is_admin   = (($_SESSION['role'] ?? '') === 'admin');
@@ -95,6 +96,8 @@ if (!function_exists('icon')) {
             'user'           => '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
             'male'           => '<circle cx="10" cy="14" r="5.5"/><line x1="14.2" y1="9.8" x2="20.5" y2="3.5"/><polyline points="15 3.5 20.5 3.5 20.5 9"/>',
             'female'         => '<circle cx="12" cy="8.5" r="5.5"/><line x1="12" y1="14" x2="12" y2="21"/><line x1="8.5" y1="18" x2="15.5" y2="18"/>',
+            'palette'        => '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 11.996 2z"/>',
+            'check'          => '<polyline points="20 6 9 17 4 12"/>',
         ];
         $path = $paths[$name] ?? '';
         return '<svg class="'.$class.'" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'.$path.'</svg>';
@@ -182,7 +185,8 @@ $crumb = $page_crumb ?? ($page_title ?? 'Overview');
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#075B6B">
+<meta name="theme-color" content="#063C46">
+<?= bms_theme_boot_script((int)($_SESSION['user_id'] ?? 0)) ?>
 <title><?= e(($page_title ?? 'Barangay System')) ?> · Sto. Niño Barangay Management System</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -264,6 +268,27 @@ $crumb = $page_crumb ?? ($page_title ?? 'Overview');
             <?php endif; ?>
 
             <div class="topbar__actions">
+                <div class="dropdown" data-dropdown data-theme-picker data-user-id="<?= (int)($_SESSION['user_id'] ?? 0) ?>">
+                    <button class="icon-btn" type="button" data-dropdown-toggle aria-haspopup="true" aria-expanded="false" aria-label="Change theme" title="Theme">
+                        <?= icon('palette') ?>
+                    </button>
+                    <div class="dropdown__menu" data-dropdown-menu role="menu" aria-label="Theme" hidden>
+                        <p class="dropdown__label">Theme</p>
+                        <?php foreach (bms_themes() as $theme_id => $theme): [$sw_page, $sw_card, $sw_side] = $theme['swatch']; ?>
+                        <button class="dropdown__item theme-option" type="button" role="menuitemradio" aria-checked="false"
+                                data-theme-option="<?= e($theme_id) ?>" data-theme-color="<?= e($sw_side) ?>">
+                            <span class="theme-swatch" aria-hidden="true">
+                                <span style="background:<?= e($sw_side) ?>"></span>
+                                <span style="background:<?= e($sw_page) ?>"></span>
+                                <span style="background:<?= e($sw_card) ?>"></span>
+                            </span>
+                            <span class="theme-option__label"><?= e($theme['label']) ?></span>
+                            <span class="theme-option__check"><?= icon('check', 'ico ico--sm') ?></span>
+                        </button>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
                 <a class="icon-btn" href="<?= e($is_resident ? url('resident/resident_profile.php') : url('pages/documents.php')) ?>" title="Pending document requests" aria-label="Notifications: <?= (int)$pending_notice ?> pending document requests">
                     <?= icon('bell') ?>
                     <?php if ($pending_notice > 0): ?><span class="icon-btn__badge"><?= (int)$pending_notice ?></span><?php endif; ?>

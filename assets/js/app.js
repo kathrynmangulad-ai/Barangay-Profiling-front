@@ -103,6 +103,52 @@
     });
     document.addEventListener('click', function () { closeAllDropdowns(null); });
 
+    /* Theme picker. The saved theme is already applied by the inline script in
+       <head> (partials/theme.php); this wires up the palette menu. A choice is
+       saved for this browser and for the signed-in account. */
+    var picker = document.querySelector('[data-theme-picker]');
+    if (picker) {
+        var THEME_KEY = 'bms.theme';
+        var DEFAULT_THEME = 'teal';
+        var root = document.documentElement;
+        var userId = picker.getAttribute('data-user-id') || '';
+        var options = picker.querySelectorAll('[data-theme-option]');
+        var metaColor = document.querySelector('meta[name="theme-color"]');
+
+        var currentTheme = function () { return root.getAttribute('data-theme') || DEFAULT_THEME; };
+
+        var syncPicker = function () {
+            var active = currentTheme();
+            Array.prototype.forEach.call(options, function (opt) {
+                var on = opt.getAttribute('data-theme-option') === active;
+                opt.setAttribute('aria-checked', on ? 'true' : 'false');
+                if (on && metaColor) { metaColor.setAttribute('content', opt.getAttribute('data-theme-color')); }
+            });
+        };
+
+        var applyTheme = function (id) {
+            if (id === DEFAULT_THEME) { root.removeAttribute('data-theme'); }
+            else { root.setAttribute('data-theme', id); }
+            try {
+                localStorage.setItem(THEME_KEY, id);
+                if (userId && userId !== '0') { localStorage.setItem(THEME_KEY + ':' + userId, id); }
+            } catch (err) { /* storage blocked: the theme still applies for this visit */ }
+            syncPicker();
+            var evt;
+            try { evt = new CustomEvent('bms:themechange', { detail: { theme: id } }); }
+            catch (err) { evt = document.createEvent('CustomEvent'); evt.initCustomEvent('bms:themechange', false, false, { theme: id }); }
+            document.dispatchEvent(evt);
+        };
+
+        Array.prototype.forEach.call(options, function (opt) {
+            opt.addEventListener('click', function () {
+                applyTheme(opt.getAttribute('data-theme-option'));
+                closeDropdown(picker);
+            });
+        });
+        syncPicker();
+    }
+
      
     Array.prototype.forEach.call(document.querySelectorAll('[data-toast]'), function (toast) {
         var close = toast.querySelector('[data-toast-close]');

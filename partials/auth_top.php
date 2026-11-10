@@ -37,7 +37,9 @@ if (!function_exists('auth_eye_button')) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#075B6B">
+<meta name="theme-color" content="#063C46">
+<?php require_once __DIR__ . '/theme.php'; ?>
+<?= bms_theme_boot_script(0) ?>
 <title><?= e($page_title ?? 'Sign in') ?> · Sto. Niño Barangay Management System</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
