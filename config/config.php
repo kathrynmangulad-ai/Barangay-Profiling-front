@@ -58,7 +58,13 @@ if (!function_exists('url')) {
 if (!function_exists('asset')) {
     /** Build a URL to a file under /assets, e.g. asset('css/style.css'). */
     function asset($path) {
-        return url('assets/' . ltrim((string)$path, '/'));
+        $path = ltrim((string)$path, '/');
+        // Cache-busting: "?v=<last modified time>" changes whenever the file
+        // changes, so browsers fetch the new CSS/JS after an update instead of
+        // reusing a stale cached copy.
+        $file = BASE_PATH . '/assets/' . $path;
+        $v = is_file($file) ? '?v=' . filemtime($file) : '';
+        return url('assets/' . $path) . $v;
     }
 }
 
