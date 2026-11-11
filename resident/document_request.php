@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
  
-// Suggestions: the standard document types (same list as the staff form),
+// Dropdown options: the standard document types (same list as the staff form),
 // plus any other type already on file.
 $types = ['Barangay Clearance', 'Certificate of Residency', 'Certificate of Indigency',
           'Certification of Good Moral', 'Business Clearance', 'Barangay Permit',
@@ -127,14 +127,13 @@ include BASE_PATH . '/partials/header.php';
         <div class="form-grid">
             <div>
                 <label for="document_type">Document Type <span aria-hidden="true">*</span></label>
-                <input id="document_type" name="document_type" required maxlength="100"
-                       list="document-types" placeholder="e.g. Barangay Clearance"
-                       value="<?= $error !== '' ? e($_POST['document_type'] ?? '') : '' ?>">
-                <datalist id="document-types">
+                <?php $sel_type = $error !== '' ? trim((string)($_POST['document_type'] ?? '')) : ''; ?>
+                <select id="document_type" name="document_type" required>
+                    <option value="">Select Document</option>
                     <?php foreach ($types as $ty): ?>
-                        <option value="<?= e($ty) ?>"></option>
+                        <option value="<?= e($ty) ?>"<?= $sel_type === $ty ? ' selected' : '' ?>><?= e($ty) ?></option>
                     <?php endforeach; ?>
-                </datalist>
+                </select>
             </div>
 
             <div>
