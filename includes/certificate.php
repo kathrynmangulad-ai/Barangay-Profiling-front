@@ -15,7 +15,9 @@
  * their barangay), the document type and the Released status, fixes the
  * issue date (released_at) and assigns the control number <CODE>-YYYY-NNN once.
  *
- * Images (optional - the page works without them):
+ * Images (optional - the page works without them). Each barangay uploads its
+ * own under Secretary > Document Logos (see includes/logos.php); until then the
+ * built-in files are used:
  *   assets/img/logo.png                         municipal seal (left)
  *   assets/img/bagong_pilipinas.png             Bagong Pilipinas logo (left)
  *   assets/img/seals/<barangay-slug>.png        barangay seal with ribbons (right)
@@ -24,8 +26,10 @@
  *                                               the right seal when there is no
  *                                               ribbon version
  * e.g. seals/centro-sur.png. A ribbon seal's medallion position is measured
- * once and cached beside it as <slug>.json.
+ * once and cached beside it as <name>.json.
  */
+
+require_once __DIR__ . '/logos.php';
 
 if (!defined('CERT_PROVINCE')) {
     define('CERT_PROVINCE', 'Cagayan');
@@ -242,14 +246,14 @@ function cert_load(mysqli $conn, int $rid, string $typePattern, string $docLabel
     $barangay = ucwords(mb_strtolower($brgyRaw, 'UTF-8'), " -.");
     $captain  = trim(preg_replace('/^hon\.?\s+/i', '', trim((string)($request['punong_barangay'] ?? ''))));
 
-    $slug = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($brgyRaw)), '-');
-    $img = function (string $rel): ?string {
-        return is_file(BASE_PATH . '/assets/img/' . $rel) ? asset('img/' . $rel) : null;
-    };
-    $municipalSeal = $img('logo.png');
-    $bagongLogo    = $img('bagong_pilipinas.png');
-    $barangaySeal  = $slug !== '' ? $img('seals/' . $slug . '.png') : null;
-    $watermarkSeal = $slug !== '' ? $img('seals/' . $slug . '-watermark.png') : null;
+    // The barangay's own uploads win; the built-in files are the fallback.
+    $slug   = logo_slug($brgyRaw);
+    $brgyId = (int)$request['barangay_id'];
+    $ribbon = brgy_logo($brgyId, $slug, 'seal');
+    $municipalSeal = brgy_logo($brgyId, $slug, 'municipal')['url'] ?? null;
+    $bagongLogo    = brgy_logo($brgyId, $slug, 'bagong')['url'] ?? null;
+    $barangaySeal  = $ribbon['url'] ?? null;
+    $watermarkSeal = brgy_logo($brgyId, $slug, 'watermark')['url'] ?? null;
     $headerSeal      = $barangaySeal ?: $watermarkSeal;
     $headerSealRound = !$barangaySeal && $watermarkSeal;
 
@@ -258,7 +262,7 @@ function cert_load(mysqli $conn, int $rid, string $typePattern, string $docLabel
     // the header's centre line with the left logos.
     $sealStyle = '';
     if ($headerSeal && !$headerSealRound) {
-        $geo = cert_seal_geometry(BASE_PATH . '/assets/img/seals/' . $slug . '.png');
+        $geo = cert_seal_geometry($ribbon['path']);
         $sealH = 23 / $geo['ring'];
         $sealStyle = sprintf('height:%.2fmm;transform:translateY(%.2fmm)', $sealH, (0.5 - $geo['center']) * $sealH);
     }
@@ -269,14 +273,15 @@ function cert_load(mysqli $conn, int $rid, string $typePattern, string $docLabel
         if ($captain === '') {
             $hints[] = 'No Punong Barangay is set for Barangay ' . e($barangay) . '. <a href="' . e(url('admin/barangays.php')) . '">Set it under Admin &rsaquo; Barangays</a>.';
         }
+        $logosLink = '<a href="' . e(url('secretary/document_logos.php?barangay_id=' . $brgyId)) . '">Document Logos</a>';
         if (!$barangaySeal && !$watermarkSeal) {
-            $hints[] = 'Add the Barangay ' . e($barangay) . ' seal (with ribbons) as <code>assets/img/seals/' . e($slug) . '.png</code> to show it at the top right.';
+            $hints[] = 'Barangay ' . e($barangay) . ' has no seal yet, so the top right is empty. Its secretary can upload one under ' . $logosLink . '.';
         }
         if (!$watermarkSeal) {
-            $hints[] = 'Add the plain round Barangay ' . e($barangay) . ' seal (transparent PNG) as <code>assets/img/seals/' . e($slug) . '-watermark.png</code> for the watermark.';
+            $hints[] = 'Barangay ' . e($barangay) . ' has no plain round seal for the watermark. Its secretary can upload one under ' . $logosLink . '.';
         }
         if (!$bagongLogo) {
-            $hints[] = 'Add the Bagong Pilipinas logo as <code>assets/img/bagong_pilipinas.png</code>.';
+            $hints[] = 'The Bagong Pilipinas logo is missing. It can be uploaded under ' . $logosLink . '.';
         }
     }
 

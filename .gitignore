@@ -35,6 +35,10 @@ uploads/*
 !uploads/residents/
 uploads/residents/*
 !uploads/residents/.gitkeep
+# Per-barangay document logos uploaded by secretaries (includes/logos.php).
+!uploads/seals/
+uploads/seals/*
+!uploads/seals/.gitkeep
 
 # ---------------------------------------------------------------------------
 # PHP / tooling
