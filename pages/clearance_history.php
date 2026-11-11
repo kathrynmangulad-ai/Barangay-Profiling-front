@@ -158,9 +158,9 @@ include BASE_PATH . '/partials/header.php';
             </thead>
             <tbody>
             <?php if (empty($clearances)): ?>
-                <tr>
-                    <td colspan="7" style="text-align:center">No Barangay Clearance requests found.</td>
-                </tr>
+                <?= ($f_q !== '' || $f_status !== '' || $f_barangay > 0)
+                    ? empty_row(7, 'search', 'No clearance requests match', 'Try a different search, or reset the filters.')
+                    : empty_row(7, 'file-text', 'No clearance requests yet', 'Barangay Clearance requests will be listed here once they are filed.') ?>
             <?php else: foreach ($clearances as $c): ?>
                 <tr>
                     <td style="white-space:nowrap"><strong><?= e($c['control_no'] ?? '-') ?></strong></td>

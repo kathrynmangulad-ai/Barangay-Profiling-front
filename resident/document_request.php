@@ -189,7 +189,7 @@ document.getElementById('docNewBtn').addEventListener('click', function () {
     </div>
 <?php else: ?>
     <div class="card">
-        <p>You have not filed any document requests yet.</p>
+        <?= empty_state('file-text', 'No document requests yet', 'Use New Request to ask the barangay for a clearance or certificate. Its status will show here.') ?>
     </div>
 <?php endif; ?>
 

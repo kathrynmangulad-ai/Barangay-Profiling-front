@@ -267,7 +267,7 @@ include BASE_PATH . '/partials/header.php';
     </form>
 <span class="muted-meta">Total: <?= number_format(count($rows)) ?> record<?= count($rows) === 1 ? '' : 's' ?></span>
     <span class="push-right" style="display:inline-flex;gap:8px;align-items:center;">
-        <button class="btn" type="button" onclick="window.print()">🖨 View / Print</button>
+        <button class="btn" type="button" onclick="window.print()"><?= icon('printer') ?> View / Print</button>
     </span>
 </div>
 
@@ -293,15 +293,11 @@ include BASE_PATH . '/partials/header.php';
         </thead>
         <tbody>
             <?php if (!$rows): ?>
-            <tr>
-                <td colspan="<?= $is_admin ? 14 : 13 ?>">
-                    <div class="empty">
-                        <span class="empty__ico" aria-hidden="true"><?= icon('inbox') ?></span>
-                        <p class="empty__title">No snapshot captured for <?= (int)$selYear ?></p>
-                        <p class="empty__text"><?php if ($is_admin): ?>Use the &ldquo;Capture / refresh <?= (int)$selYear ?>&rdquo; button above to freeze this year's figures into barangay_yearly_stats.<?php else: ?>Ask an administrator to capture the <?= (int)$selYear ?> yearly snapshot.<?php endif; ?></p>
-                    </div>
-                </td>
-            </tr>
+            <?= empty_row($is_admin ? 14 : 13, 'inbox', 'No snapshot captured for ' . (int)$selYear,
+                    'A snapshot freezes the year\'s figures ' . ($is_admin ? 'for every barangay' : 'for your barangay') . ' so this report stays the same later.',
+                    '<a class="btn" href="' . e(url('admin/yearly_capture.php?year=' . (int)$selYear . '&token=' . csrf_token())) . '"'
+                    . ' data-confirm="Capture a frozen snapshot of ' . (int)$selYear . ' ' . ($is_admin ? 'for every barangay' : 'for your assigned barangay') . '? Re-running overwrites this year\'s snapshot."'
+                    . ' data-confirm-title="Capture yearly snapshot">' . icon('shield') . ' Capture ' . (int)$selYear . '</a>') ?>
             <?php else: ?>
                 <?php if (!$is_admin): ?>
                     <?php $secRow = $body[0] ?? null; ?>
@@ -358,7 +354,7 @@ include BASE_PATH . '/partials/header.php';
                     <td><?= number_format((int)$r['documents']) ?></td>
                     <td><?= number_format((int)$r['blotters']) ?></td>
                     <td><?= $r['captured_at'] ? e(date('M j, Y', strtotime($r['captured_at']))) : '—' ?></td>
-                    <td><a class="btn" href="<?= e(url('pages/report_print.php?year=' . (int)$r['stat_year'] . '&barangay=' . (int)$r['barangay_id'])) ?>">🖨 View / Print</a></td>
+                    <td><a class="btn" href="<?= e(url('pages/report_print.php?year=' . (int)$r['stat_year'] . '&barangay=' . (int)$r['barangay_id'])) ?>"><?= icon('printer') ?> View / Print</a></td>
                 </tr>
                 <?php endforeach; ?>
                 <?php endif; ?>

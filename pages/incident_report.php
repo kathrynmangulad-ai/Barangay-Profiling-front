@@ -62,7 +62,7 @@ include BASE_PATH . '/partials/header.php';
 
     <div class="no-print" style="text-align:right;">
         <button class="btn" type="button" onclick="window.print()">
-            🖨 View / Print Receipt
+            <?= icon('printer') ?> View / Print Receipt
         </button>
     </div>
 

@@ -538,16 +538,21 @@ $page_scripts = [
     'assets/js/dashboard.js',
 ];
 
+$page_head = false; // the dashboard draws its own title row, next to the filters
 include BASE_PATH . '/partials/header.php';
 ?>
 
+<?php /* The dashboard is laid out to fit one screen on a desktop: a title row
+         with the filters, a strip of figures, then a board of five panels that
+         share the remaining height. The 31-row barangay table is its own tab. */ ?>
+<div class="dash">
 <script type="application/json" id="dashboard-data"><?= json_encode($chartPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 
-<!-- ============================ Filter / control bar ===================== -->
-<div class="dash-bar">
-    <div class="dash-bar__scope">
-        <span class="dash-bar__year"><?= (int)$selYear ?></span>
-        <span class="dash-bar__brgy"><?= e($brgyName) ?></span>
+<!-- ===================== Title, scope and filters (one row) =============== -->
+<div class="dash-head">
+    <div class="dash-head__title">
+        <h1 class="page-head__title">Dashboard</h1>
+        <span class="dash-head__scope"><?= (int)$selYear ?> · <?= e($brgyName) ?></span>
         <?php if ($isPastYear): ?>
             <?php if ($usingSnapshot): ?>
                 <span class="chip chip--snapshot" title="Figures come from a frozen year-end snapshot">
@@ -563,192 +568,90 @@ include BASE_PATH . '/partials/header.php';
         <?php endif; ?>
     </div>
 
-    <form method="get" class="dash-bar__filters">
+    <form method="get" class="dash-head__filters">
         <?php if ($isAdmin): ?>
-        <div class="field">
-            <label class="field__label" for="f_brgy">Barangay</label>
-            <select id="f_brgy" name="barangay" title="Filter by barangay">
-                <option value="0">All Barangays</option>
-                <?php while ($barangayList && $bb = $barangayList->fetch_assoc()): ?>
-                <option value="<?= (int)$bb['id'] ?>"<?= $selBrgy === (int)$bb['id'] ? ' selected' : '' ?>><?= e($bb['barangay_name']) ?></option>
-                <?php endwhile; ?>
-            </select>
-        </div>
+        <label class="sr-only" for="f_brgy">Barangay</label>
+        <select id="f_brgy" name="barangay" title="Filter by barangay">
+            <option value="0">All Barangays</option>
+            <?php while ($barangayList && $bb = $barangayList->fetch_assoc()): ?>
+            <option value="<?= (int)$bb['id'] ?>"<?= $selBrgy === (int)$bb['id'] ? ' selected' : '' ?>><?= e($bb['barangay_name']) ?></option>
+            <?php endwhile; ?>
+        </select>
         <?php endif; ?>
-        <div class="field">
-            <label class="field__label" for="f_year">Year</label>
-            <select id="f_year" name="year" title="Filter by year">
-                <?php foreach ($yearOptions as $yopt): ?>
-                <option value="<?= (int)$yopt ?>"<?= $selYear === (int)$yopt ? ' selected' : '' ?>><?= (int)$yopt ?><?= isset($capturedYears[(int)$yopt]) ? ' (saved)' : '' ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div class="dash-bar__actions">
-            <button class="btn btn-primary" type="submit">Apply</button>
-            <?php if ($selYear !== $currentYear || ($isAdmin && $selBrgy > 0)): ?>
-            <a class="btn btn--ghost" href="<?= e(url('pages/dashboard.php')) ?>">Reset</a>
-            <?php endif; ?>
-            <a class="btn btn--ghost" href="<?= e(url('admin/yearly_capture.php?year=' . (int)$selYear . '&token=' . csrf_token())) ?>"
-               data-confirm="Capture a frozen snapshot of <?= (int)$selYear ?> <?= $isAdmin ? 'for every barangay' : 'for your assigned barangay' ?>? Re-running overwrites this year's snapshot."
-               data-confirm-title="Capture yearly snapshot">
-               <?= icon('shield', 'ico ico--xs') ?> <?= isset($capturedYears[$selYear]) ? 'Re-capture' : 'Capture' ?> <?= (int)$selYear ?>
-            </a>
-        </div>
+        <label class="sr-only" for="f_year">Year</label>
+        <select id="f_year" name="year" title="Filter by year">
+            <?php foreach ($yearOptions as $yopt): ?>
+            <option value="<?= (int)$yopt ?>"<?= $selYear === (int)$yopt ? ' selected' : '' ?>><?= (int)$yopt ?><?= isset($capturedYears[(int)$yopt]) ? ' (saved)' : '' ?></option>
+            <?php endforeach; ?>
+        </select>
+        <button class="btn btn-primary" type="submit">Apply</button>
+        <?php if ($selYear !== $currentYear || ($isAdmin && $selBrgy > 0)): ?>
+        <a class="btn btn--ghost" href="<?= e(url('pages/dashboard.php')) ?>">Reset</a>
+        <?php endif; ?>
+        <a class="btn btn--ghost" href="<?= e(url('admin/yearly_capture.php?year=' . (int)$selYear . '&token=' . csrf_token())) ?>"
+           data-confirm="Capture a frozen snapshot of <?= (int)$selYear ?> <?= $isAdmin ? 'for every barangay' : 'for your assigned barangay' ?>? Re-running overwrites this year's snapshot."
+           data-confirm-title="Capture yearly snapshot">
+           <?= icon('shield', 'ico ico--xs') ?> <?= isset($capturedYears[$selYear]) ? 'Re-capture' : 'Capture' ?> <?= (int)$selYear ?>
+        </a>
     </form>
 </div>
 
-<!-- ============================ Quick Actions (top) ====================== -->
-<div class="section-head section-head--tight">
-    <div>
-        <h2>Quick Actions</h2>
-        <p>Jump straight into the most common tasks</p>
-    </div>
-</div>
-<div class="quick-grid quick-grid--top">
-    <a class="quick" href="<?= e(url('pages/resident_add.php')) ?>">
-        <span class="quick__ico" aria-hidden="true"><?= icon('user-plus') ?></span>
-        <span class="quick__text"><span class="quick__label">Add Resident</span><span class="quick__hint">Register a resident</span></span>
-    </a>
-    <a class="quick quick--coral" href="<?= e(url('pages/documents.php')) ?>">
-        <span class="quick__ico" aria-hidden="true"><?= icon('file-plus') ?></span>
-        <span class="quick__text"><span class="quick__label">Document Request</span><span class="quick__hint">Log a request</span></span>
-    </a>
-    <a class="quick quick--amber" href="<?= e(url('pages/blotter_add.php')) ?>">
-        <span class="quick__ico" aria-hidden="true"><?= icon('alert-triangle') ?></span>
-        <span class="quick__text"><span class="quick__label">New Blotter</span><span class="quick__hint">Record an incident</span></span>
-    </a>
-    <a class="quick quick--green" href="<?= e(url('pages/incident_report.php')) ?>">
-        <span class="quick__ico" aria-hidden="true"><?= icon('receipt') ?></span>
-        <span class="quick__text"><span class="quick__label">Incident Receipt</span><span class="quick__hint">Issue a receipt</span></span>
-    </a>
-    <?php if ($isAdmin): ?>
-    <a class="quick quick--navy" href="<?= e(url('admin/users.php')) ?>">
-        <span class="quick__ico" aria-hidden="true"><?= icon('shield') ?></span>
-        <span class="quick__text"><span class="quick__label">Manage Users</span><span class="quick__hint">Accounts &amp; roles</span></span>
-    </a>
+<!-- ===================== Tabs (left) and quick actions (right) ============ -->
+<div class="dash-bar2<?= $showBreakdown ? '' : ' dash-bar2--plain' ?>">
+    <?php if ($showBreakdown): ?>
+    <nav class="tabs" aria-label="Dashboard views">
+        <a href="#overview" class="active" data-dash-tab="overview" aria-current="page">Overview</a>
+        <a href="#barangays" data-dash-tab="barangays">All Barangays (<?= count($breakdown) ?>)</a>
+    </nav>
     <?php endif; ?>
-</div>
-
-<!-- ============================ At a Glance ============================== -->
-<div class="section-head">
-    <div>
-        <h2>At a Glance</h2>
-        <p>
-            Key figures for <strong><?= (int)$selYear ?></strong> · <?= e($brgyName) ?>
-            <?php if ($usingSnapshot): ?> · from year-end snapshot<?php endif; ?>
-        </p>
+    <div class="dash-quick" aria-label="Quick actions">
+        <a class="btn btn--ghost" href="<?= e(url('pages/resident_add.php')) ?>"><?= icon('user-plus') ?> Add Resident</a>
+        <a class="btn btn--ghost" href="<?= e(url('pages/documents.php')) ?>"><?= icon('file-plus') ?> Document Request</a>
+        <a class="btn btn--ghost" href="<?= e(url('pages/blotter_add.php')) ?>"><?= icon('alert-triangle') ?> New Blotter</a>
+        <a class="btn btn--ghost" href="<?= e(url('pages/incident_report.php')) ?>"><?= icon('receipt') ?> Incident Receipt</a>
+        <?php if ($isAdmin): ?>
+        <a class="btn btn--ghost" href="<?= e(url('admin/users.php')) ?>"><?= icon('shield') ?> Manage Users</a>
+        <?php endif; ?>
     </div>
 </div>
 
-<div class="kpi-grid kpi-grid--glance">
-    <?php
-     
-    $glance = [
-        ['Residents registered', $residents, 'residents', '#0E7490', 'pages/residents.php', 'View residents'],
-        ['Document Requests', $docs, 'docs', '#075B6B', 'pages/documents.php', 'View requests'],
-        ['Blotter Records', $blotters, 'blotters', '#C2544A', 'pages/blotters.php', 'View records'],
-        ['Households', $total_households, 'house', '#B45309', 'pages/residents.php', 'View residents'],
-        ['PWDs', $total_pwd, 'pwd', '#15803D', 'pages/residents.php', 'View residents'],
-        ['Students', $total_students, 'students', '#6D28D9', 'pages/residents.php', 'View residents'],
-        ['Seniors (60+)', $total_seniors, 'seniors', '#F59E0B', 'pages/residents.php', 'View residents'],
-        ['Indigenous People (IP)', $total_ip, 'ip', '#1D4ED8', 'pages/residents.php', 'View residents'],
-        ['4Ps Beneficiaries', $total_4ps, 'fourps', '#EA580C', 'pages/residents.php', 'View residents'],
-    ];
-    $sparkMap = ['residents' => $sparkResidents, 'docs' => $sparkDocs, 'blotters' => $sparkBlotters, 'house' => $sparkHouse, 'pwd' => $sparkPwd, 'students' => $sparkStu, 'seniors' => $sparkSen, 'ip' => $sparkIp, 'fourps' => $sparkFourps];
-    foreach ($glance as $g):
-        [$gLabel, $gTotal, $gKey, $gColor, $gHref, $gLink] = $g;
+<div class="dash-pane" data-dash-pane="overview">
+
+<!-- ============================ Figures (one strip) ====================== -->
+<?php
+/* Each tile is one link: short label, the figure and, when there is a real
+   earlier period to compare against, the change since the first half. */
+$glance = [
+    ['Residents', 'Residents registered', $residents, 'residents', 'users', 'navy', 'pages/residents.php'],
+    ['Households', 'Households', $total_households, 'house', 'house', 'teal', 'pages/households.php'],
+    ['Documents', 'Document requests', $docs, 'docs', 'file-text', 'amber', 'pages/documents.php'],
+    ['Blotters', 'Blotter records', $blotters, 'blotters', 'clipboard', 'coral', 'pages/blotters.php'],
+    ['PWDs', 'Persons with disability', $total_pwd, 'pwd', 'accessibility', 'green', 'pages/residents.php'],
+    ['Students', 'Students', $total_students, 'students', 'graduation-cap', 'violet', 'pages/residents.php'],
+    ['Seniors', 'Seniors (60+)', $total_seniors, 'seniors', 'user', 'amber', 'pages/residents.php'],
+    ['IP', 'Indigenous People (IP)', $total_ip, 'ip', 'leaf', 'teal', 'pages/residents.php'],
+    ['4Ps', '4Ps beneficiaries', $total_4ps, 'fourps', 'wallet', 'coral', 'pages/residents.php'],
+];
+$sparkMap = ['residents' => $sparkResidents, 'docs' => $sparkDocs, 'blotters' => $sparkBlotters, 'house' => $sparkHouse, 'pwd' => $sparkPwd, 'students' => $sparkStu, 'seniors' => $sparkSen, 'ip' => $sparkIp, 'fourps' => $sparkFourps];
+?>
+<div class="stat-strip" aria-label="Key figures for <?= (int)$selYear ?>, <?= e($brgyName) ?><?= $usingSnapshot ? ', from the year-end snapshot' : '' ?>">
+    <?php foreach ($glance as [$gLabel, $gFull, $gTotal, $gKey, $gIcon, $gTone, $gHref]):
         $sp = $sparkMap[$gKey];
-        // Only show a growth delta when there is a real prior period to compare
-        // against; otherwise show a neutral tag so cards aren't all "+100%".
         $showDelta = (!$usingSnapshot) && $sp['meaningful'];
+        $gTitle = $gFull . ($usingSnapshot ? ' (year-end total)' : ' in ' . (int)$selYear);
+        if ($showDelta) { $gTitle .= ': ' . ($sp['up'] ? '+' : '') . number_format($sp['pct'], 0) . '% vs. the first half'; }
     ?>
-    <article class="kpi kpi--glance" style="--kpi-accent: <?= e($gColor) ?>; --spark: <?= e($gColor) ?>">
-        <div class="kpi__head">
-            <span class="kpi__dot" aria-hidden="true"></span>
-            <p class="kpi__title"><?= e($gLabel) ?></p>
-        </div>
-        <p class="kpi__value"><?= number_format((int)$gTotal) ?></p>
-        <?php if ($showDelta): ?>
-        <p class="kpi__delta <?= $sp['up'] ? 'kpi__delta--up' : 'kpi__delta--down' ?>">
-            <span aria-hidden="true"><?= $sp['up'] ? '↗' : '↘' ?></span>
-            <?= ($sp['up'] ? '+' : '') . number_format($sp['pct'], 0) ?>% vs. H1
-        </p>
-        <?php else: ?>
-        <p class="kpi__delta kpi__delta--muted"><?= $usingSnapshot ? 'Year-end total' : 'in ' . (int)$selYear ?></p>
-        <?php endif; ?>
-        <a class="kpi__link" href="<?= e(url($gHref)) ?>"><?= e($gLink) ?> <?= icon('arrow-right', 'ico ico--xs') ?></a>
-    </article>
+    <a class="stat-tile kpi--<?= e($gTone) ?>" href="<?= e(url($gHref)) ?>" title="<?= e($gTitle) ?>">
+        <span class="stat-tile__label"><?= e($gLabel) ?></span>
+        <span class="stat-tile__icon kpi__icon" aria-hidden="true"><?= icon($gIcon) ?></span>
+        <span class="stat-tile__value"><?= number_format((int)$gTotal) ?><?php if ($showDelta): ?><span class="stat-tile__delta <?= $sp['up'] ? 'kpi__delta--up' : 'kpi__delta--down' ?>"><span aria-hidden="true"><?= $sp['up'] ? '↑' : '↓' ?></span><?= number_format(abs($sp['pct']), 0) ?>%</span><?php endif; ?></span>
+    </a>
     <?php endforeach; ?>
 </div>
 
-<?php if ($showBreakdown): ?>
-<!-- ===================== Per-barangay breakdown (see all) =============== -->
-<div class="section-head">
-    <div>
-        <h2>All Barangays</h2>
-        <p>Every barangay's figures for <strong><?= (int)$selYear ?></strong><?php if ($usingSnapshot): ?> · year-end snapshot<?php endif; ?></p>
-    </div>
-    <span class="muted-meta"><?= count($breakdown) ?> barangays</span>
-</div>
-<div class="card table-wrap table-wrap--sticky">
-    <table class="data-table data-table--compact">
-        <thead>
-            <tr>
-                <th class="is-left">Barangay</th>
-                <th>Residents</th>
-                <th>Households</th>
-                <th>Students</th>
-                <th>PWD</th>
-                <th>Seniors</th>
-                <th>IP</th>
-                <th>4Ps</th>
-                <th>Documents</th>
-                <th>Blotters</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($breakdown as $b): ?>
-            <tr>
-                <td class="is-left"><?= e($b['name']) ?></td>
-                <td><?= number_format((int)$b['residents']) ?></td>
-                <td><?= number_format((int)$b['households']) ?></td>
-                <td><?= number_format((int)$b['students']) ?></td>
-                <td><?= number_format((int)$b['pwd']) ?></td>
-                <td><?= number_format((int)$b['seniors']) ?></td>
-                <td><?= $ipCol !== null ? number_format((int)$b['ip']) : '-' ?></td>
-                <td><?= $fourpsCol !== null ? number_format((int)$b['fourps']) : '-' ?></td>
-                <td><?= number_format((int)$b['documents']) ?></td>
-                <td><?= number_format((int)$b['blotters']) ?></td>
-            </tr>
-            <?php endforeach; ?>
-        </tbody>
-        <tfoot>
-            <tr class="data-table__total">
-                <td class="is-left">All Barangays</td>
-                <td><?= number_format($breakdownTotals['residents']) ?></td>
-                <td><?= number_format($breakdownTotals['households']) ?></td>
-                <td><?= number_format($breakdownTotals['students']) ?></td>
-                <td><?= number_format($breakdownTotals['pwd']) ?></td>
-                <td><?= number_format($breakdownTotals['seniors']) ?></td>
-                <td><?= $ipCol !== null ? number_format($breakdownTotals['ip']) : '-' ?></td>
-                <td><?= $fourpsCol !== null ? number_format($breakdownTotals['fourps']) : '-' ?></td>
-                <td><?= number_format($breakdownTotals['documents']) ?></td>
-                <td><?= number_format($breakdownTotals['blotters']) ?></td>
-            </tr>
-        </tfoot>
-    </table>
-</div>
-<?php endif; ?>
-
-<div class="section-head">
-    <div>
-        <h2>Insights</h2>
-        <p>Trends calculated from actual records</p>
-    </div>
-</div>
-
-<div class="dash-grid">
-    <section class="panel" aria-labelledby="growth-heading">
+<!-- ============================ Board (five panels) ====================== -->
+<div class="dash-board">
+    <section class="panel dash-board__wide" aria-labelledby="growth-heading">
         <div class="panel__head">
             <div>
                 <h3 class="panel__title" id="growth-heading">Resident Statistics</h3>
@@ -771,9 +674,7 @@ include BASE_PATH . '/partials/header.php';
             <canvas id="populationChart" role="img" aria-label="Donut chart of the resident population breakdown"></canvas>
         </div>
     </section>
-</div>
 
-<div class="dash-grid">
     <section class="panel" aria-labelledby="activity-heading">
         <div class="panel__head">
             <div>
@@ -781,15 +682,15 @@ include BASE_PATH . '/partials/header.php';
                 <p class="panel__sub">Latest updates across the system</p>
             </div>
         </div>
+        <div class="panel__body">
         <?php if ($activity): ?>
             <ul class="activity">
                 <?php foreach ($activity as $item): ?>
                     <li class="activity__item">
                         <span class="activity__dot<?= $item['tone'] !== '' ? ' activity__dot--' . e($item['tone']) : '' ?>" aria-hidden="true"><?= icon($item['icon'], 'ico ico--sm') ?></span>
                         <div class="activity__body">
-                            <p class="activity__title"><?= e($item['title']) ?></p>
+                            <p class="activity__title"><span><?= e($item['title']) ?></span><span class="activity__time"><?= e(time_ago($item['ts'])) ?></span></p>
                             <p class="activity__desc"><?= e($item['desc']) ?></p>
-                            <span class="activity__time"><?= e(time_ago($item['ts'])) ?></span>
                         </div>
                     </li>
                 <?php endforeach; ?>
@@ -801,15 +702,31 @@ include BASE_PATH . '/partials/header.php';
                 <p class="empty__text">New residents, document requests and blotter records will appear here as they are created.</p>
             </div>
         <?php endif; ?>
+        </div>
     </section>
 
     <section class="panel" aria-labelledby="docs-heading">
         <div class="panel__head">
             <div>
                 <h3 class="panel__title" id="docs-heading">Document Requests</h3>
-                <p class="panel__sub">Requests by current status</p>
+                <p class="panel__sub">Recorded in <?= (int)$selYear ?>, by status</p>
             </div>
             <a class="panel__link" href="<?= e(url('pages/documents.php')) ?>">View all <?= icon('arrow-right', 'ico ico--xs') ?></a>
+        </div>
+        <div class="panel__body">
+        <div class="mini-stats mini-stats--3">
+            <div class="mini-stat">
+                <div class="mini-stat__value"><?= number_format($docs) ?></div>
+                <div class="mini-stat__label">Total</div>
+            </div>
+            <div class="mini-stat">
+                <div class="mini-stat__value"><?= number_format(($docStatus['Pending'] ?? 0) + ($docStatus['Processing'] ?? 0)) ?></div>
+                <div class="mini-stat__label">In progress</div>
+            </div>
+            <div class="mini-stat">
+                <div class="mini-stat__value"><?= number_format($docStatus['Released'] ?? 0) ?></div>
+                <div class="mini-stat__label">Released</div>
+            </div>
         </div>
         <?php if ($docStatusTotal > 0): ?>
             <ul class="stat-list">
@@ -821,16 +738,11 @@ include BASE_PATH . '/partials/header.php';
                 <?php endforeach; ?>
             </ul>
         <?php else: ?>
-            <div class="empty">
-                <span class="empty__ico" aria-hidden="true"><?= icon('file-text') ?></span>
-                <p class="empty__title">No document requests yet</p>
-                <p class="empty__text">Submitted document requests and their statuses will be summarised here.</p>
-            </div>
+            <p class="panel__empty">No document requests yet. Their statuses will be summarised here.</p>
         <?php endif; ?>
+        </div>
     </section>
-</div>
 
-<div class="dash-grid dash-grid--even">
     <section class="panel" aria-labelledby="blotter-heading">
         <div class="panel__head">
             <div>
@@ -839,6 +751,7 @@ include BASE_PATH . '/partials/header.php';
             </div>
             <a class="panel__link" href="<?= e(url('pages/blotters.php')) ?>">View all <?= icon('arrow-right', 'ico ico--xs') ?></a>
         </div>
+        <div class="panel__body">
         <div class="mini-stats">
             <div class="mini-stat">
                 <div class="mini-stat__value"><?= number_format($blotters) ?></div>
@@ -846,7 +759,7 @@ include BASE_PATH . '/partials/header.php';
             </div>
             <div class="mini-stat">
                 <div class="mini-stat__value"><?= number_format($blotMonth) ?></div>
-                <div class="mini-stat__label"><?= $selYear === $currentYear ? 'Recorded this month' : 'Recorded in ' . (int)$selYear ?></div>
+                <div class="mini-stat__label"><?= $selYear === $currentYear ? 'This month' : 'In ' . (int)$selYear ?></div>
             </div>
         </div>
         <?php if ($recentBlotters): ?>
@@ -859,37 +772,95 @@ include BASE_PATH . '/partials/header.php';
                 <?php endforeach; ?>
             </ul>
         <?php else: ?>
-            <div class="empty">
-                <span class="empty__ico" aria-hidden="true"><?= icon('clipboard') ?></span>
-                <p class="empty__title">No incidents recorded</p>
-                <p class="empty__text">Blotter entries will be listed here once incidents are logged.</p>
-            </div>
+            <p class="panel__empty">No incidents recorded. Blotter entries will be listed here once logged.</p>
         <?php endif; ?>
-    </section>
-
-    <section class="panel" aria-labelledby="docstat-heading">
-        <div class="panel__head">
-            <div>
-                <h3 class="panel__title" id="docstat-heading">Document Snapshot</h3>
-                <p class="panel__sub">Requests recorded in <?= (int)$selYear ?></p>
-            </div>
-            <a class="panel__link" href="<?= e(url('pages/documents.php')) ?>">Manage <?= icon('arrow-right', 'ico ico--xs') ?></a>
-        </div>
-        <div class="mini-stats">
-            <div class="mini-stat">
-                <div class="mini-stat__value"><?= number_format($docs) ?></div>
-                <div class="mini-stat__label">Total requests</div>
-            </div>
-            <div class="mini-stat">
-                <div class="mini-stat__value"><?= number_format($docStatus['Released'] ?? 0) ?></div>
-                <div class="mini-stat__label">Released</div>
-            </div>
-            <div class="mini-stat">
-                <div class="mini-stat__value"><?= number_format(($docStatus['Pending'] ?? 0) + ($docStatus['Processing'] ?? 0)) ?></div>
-                <div class="mini-stat__label">In progress</div>
-            </div>
         </div>
     </section>
 </div>
+
+</div><!-- /overview -->
+
+<?php if ($showBreakdown): ?>
+<!-- ===================== Per-barangay breakdown (own tab) ================ -->
+<div class="dash-pane" data-dash-pane="barangays" hidden>
+<p class="muted-meta">Every barangay's figures for <?= (int)$selYear ?><?php if ($usingSnapshot): ?> · year-end snapshot<?php endif; ?></p>
+<div class="card table-wrap table-wrap--sticky">
+    <table class="data-table data-table--compact">
+        <thead>
+            <tr>
+                <th class="is-left">Barangay</th>
+                <th>Residents</th>
+                <th>Households</th>
+                <th>Students</th>
+                <th>PWD</th>
+                <th>Seniors</th>
+                <th>IP</th>
+                <th>4Ps</th>
+                <th>Documents</th>
+                <th>Blotters</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($breakdown as $b): ?>
+            <tr>
+                <td class="is-left"><?= e($b['name']) ?></td>
+                <td<?= (int)$b['residents'] === 0 ? ' class="is-zero"' : '' ?>><?= number_format((int)$b['residents']) ?></td>
+                <td<?= (int)$b['households'] === 0 ? ' class="is-zero"' : '' ?>><?= number_format((int)$b['households']) ?></td>
+                <td<?= (int)$b['students'] === 0 ? ' class="is-zero"' : '' ?>><?= number_format((int)$b['students']) ?></td>
+                <td<?= (int)$b['pwd'] === 0 ? ' class="is-zero"' : '' ?>><?= number_format((int)$b['pwd']) ?></td>
+                <td<?= (int)$b['seniors'] === 0 ? ' class="is-zero"' : '' ?>><?= number_format((int)$b['seniors']) ?></td>
+                <td<?= ($ipCol === null || (int)$b['ip'] === 0) ? ' class="is-zero"' : '' ?>><?= $ipCol !== null ? number_format((int)$b['ip']) : '-' ?></td>
+                <td<?= ($fourpsCol === null || (int)$b['fourps'] === 0) ? ' class="is-zero"' : '' ?>><?= $fourpsCol !== null ? number_format((int)$b['fourps']) : '-' ?></td>
+                <td<?= (int)$b['documents'] === 0 ? ' class="is-zero"' : '' ?>><?= number_format((int)$b['documents']) ?></td>
+                <td<?= (int)$b['blotters'] === 0 ? ' class="is-zero"' : '' ?>><?= number_format((int)$b['blotters']) ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+        <tfoot>
+            <tr class="data-table__total">
+                <td class="is-left">All Barangays</td>
+                <td><?= number_format($breakdownTotals['residents']) ?></td>
+                <td><?= number_format($breakdownTotals['households']) ?></td>
+                <td><?= number_format($breakdownTotals['students']) ?></td>
+                <td><?= number_format($breakdownTotals['pwd']) ?></td>
+                <td><?= number_format($breakdownTotals['seniors']) ?></td>
+                <td><?= $ipCol !== null ? number_format($breakdownTotals['ip']) : '-' ?></td>
+                <td><?= $fourpsCol !== null ? number_format($breakdownTotals['fourps']) : '-' ?></td>
+                <td><?= number_format($breakdownTotals['documents']) ?></td>
+                <td><?= number_format($breakdownTotals['blotters']) ?></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+</div>
+<script>
+/* Dashboard tabs: Overview / All Barangays. The choice lives in the URL hash so a reload keeps it. */
+(function () {
+    var tabs = document.querySelectorAll('[data-dash-tab]');
+    var panes = document.querySelectorAll('[data-dash-pane]');
+    function show(name) {
+        var found = false;
+        panes.forEach(function (p) { var on = p.getAttribute('data-dash-pane') === name; p.hidden = !on; found = found || on; });
+        if (!found) { return show('overview'); }
+        tabs.forEach(function (t) {
+            var on = t.getAttribute('data-dash-tab') === name;
+            t.classList.toggle('active', on);
+            if (on) { t.setAttribute('aria-current', 'page'); } else { t.removeAttribute('aria-current'); }
+        });
+    }
+    tabs.forEach(function (t) {
+        t.addEventListener('click', function (e) {
+            e.preventDefault();
+            var name = t.getAttribute('data-dash-tab');
+            show(name);
+            try { history.replaceState(null, '', name === 'overview' ? location.pathname + location.search : '#' + name); } catch (err) {}
+        });
+    });
+    show((location.hash || '#overview').slice(1));
+})();
+</script>
+<?php endif; ?>
+
+</div><!-- /dash -->
 
 <?php include BASE_PATH . '/partials/footer.php'; ?>

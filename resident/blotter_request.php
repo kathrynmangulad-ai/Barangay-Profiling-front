@@ -201,7 +201,7 @@ document.getElementById('blotterNewBtn').addEventListener('click', function () {
     </div>
 <?php else: ?>
     <div class="card">
-        <p>You have not filed any blotter reports.</p>
+        <?= empty_state('clipboard', 'No blotter reports yet', 'Reports you file with the barangay will be listed here with their status.') ?>
     </div>
 <?php endif; ?>
 

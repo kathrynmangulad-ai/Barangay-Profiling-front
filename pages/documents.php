@@ -553,14 +553,14 @@ if (isset($error)) {
                      
 
                     <td>
-                        <?= e($r['status']) ?>
+                        <span class="badge badge--<?= e(strtolower((string)$r['status'])) ?>"><?= e($r['status']) ?></span>
                     </td>
 
 
                      
 
                     <td>
-                        <?= e($r['released_at']) ?>
+                        <?= e(fmt_datetime($r['released_at'])) ?>
                     </td>
 
 
@@ -629,16 +629,11 @@ if (isset($error)) {
         <?php else: ?>
 
 
-            <tr>
-
-                <td
-                    colspan="7"
-                    style="text-align:center;"
-                >
-                    No document requests found.
-                </td>
-
-            </tr>
+            <?= ($f_q !== '' || $f_document !== '' || $f_barangay > 0 || $f_purpose !== '')
+                ? empty_row(7, 'search', 'No requests match', 'Try a different search, or reset the filters.')
+                : ($f_tab !== ''
+                    ? empty_row(7, 'file-text', 'Nothing in this tab', 'There are no ' . $f_tab . ' document requests right now.')
+                    : empty_row(7, 'file-text', 'No document requests yet', 'Use New Request to log the first one. Requests filed by residents appear here too.')) ?>
 
 
         <?php endif; ?>

@@ -472,7 +472,7 @@ if ($show_create_form): ?>
             <th>Role</th><th>Status</th><th>Barangays</th> <th>Action</th>
         </tr>
         <?php if (!$result->num_rows): ?>
-        <tr><td colspan="7" class="muted-meta">No accounts in this category.</td></tr>
+        <?= empty_row(7, 'users', 'No accounts in this category', 'Accounts will be listed here when they fall under this tab.') ?>
         <?php endif; ?>
         <?php while ($r = $result->fetch_assoc()):
             // Prefer the account's own email; for residents fall back to the
@@ -483,7 +483,7 @@ if ($show_create_form): ?>
             <td><?= e($r['username']) ?></td>
             <td><?= e($r['full_name']) ?></td>
             <td><?= $row_email !== '' ? e($row_email) : '<span class="muted-meta">&mdash;</span>' ?></td>
-            <td><?= e($r['role']) ?></td>
+            <td><?= e(role_label((string)$r['role'])) ?></td>
             <td><span class="badge badge--<?= e($r['status']) ?>"><?= e(ucfirst($r['status'])) ?></span></td>
             <td><?= e($r['barangay_name'] ?? 'All Barangays') ?></td>
             <td>

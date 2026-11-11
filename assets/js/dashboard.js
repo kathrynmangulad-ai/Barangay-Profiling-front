@@ -132,8 +132,9 @@
                     cutout: '62%',
                     plugins: {
                         legend: {
-                            position: 'bottom',
-                            labels: { usePointStyle: true, boxWidth: 8, padding: 14 }
+                            // Beside the ring on the one-screen desktop layout (short, wide panel); under it otherwise.
+                            position: window.matchMedia('(min-width: 1200px) and (min-height: 680px)').matches ? 'right' : 'bottom',
+                            labels: { usePointStyle: true, boxWidth: 8, padding: 10 }
                         },
                         tooltip: {
                             backgroundColor: c.tooltip,

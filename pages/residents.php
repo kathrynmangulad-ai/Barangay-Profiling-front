@@ -126,30 +126,38 @@ include BASE_PATH . '/partials/header.php';?>
     <?php if($view_deleted): ?>Showing <?=number_format($total_rows)?> deleted resident<?= $total_rows===1?'':'s' ?> — Barangay: <?=e($brgy_label)?>
     <?php else: ?>Showing <?=number_format($total_rows)?> resident<?= $total_rows===1?'':'s' ?> — Barangay: <?=e($brgy_label)?><?php endif; ?>
 </p>
+<?php
+/* One "Classification" column instead of four Yes/No columns: a tag appears
+   only for the groups a resident belongs to. */
+$is_yes = function ($v) { return in_array(strtolower(trim((string)($v ?? ''))), ['yes', '1', 'y', 'true'], true); };
+$show_purok = (($_SESSION['role'] ?? '') !== 'admin');
+?>
 <div class="card table-wrap" style="overflow-x:auto">
-    <table style="table-layout:auto;width:100%">
+    <table class="table-residents" style="table-layout:auto;width:100%">
     <thead><tr>
-        <th>Photo</th>
-        <th>Name</th>
+        <th>Resident</th>
         <th>Barangay</th>
-        <?php if(($_SESSION['role'] ?? '') !== 'admin'): ?><th>Purok/Zone</th><?php endif; ?>
-        <th style="white-space:nowrap">Age</th>
+        <?php if($show_purok): ?><th>Purok/Zone</th><?php endif; ?>
         <th>Birth Date</th>
         <th>Civil Status</th>
-        <th style="white-space:nowrap">PWD</th>
-        <th style="white-space:nowrap">Students</th>
-        <th style="white-space:nowrap">IP</th>
-        <th style="white-space:nowrap">4Ps</th>
-        <th style="white-space:nowrap">Households</th>
-        <th>Occupation</th>
-        <th style="white-space:nowrap">Contact</th>
-        <th>Email</th>
-        <th style="white-space:nowrap">Action</th>
+        <th>Classification</th>
+        <th>Household</th>
+        <th>Contact</th>
+        <th class="col-actions">Action</th>
     </tr></thead>
     <tbody>
+    <?php if ($total_rows === 0) {
+        $res_cols = 8 + ($show_purok ? 1 : 0);
+        if ($q !== '' || $f_brgy > 0) {
+            echo empty_row($res_cols, 'search', 'No residents match', 'Try a different search, or reset the filters.');
+        } elseif ($view_deleted) {
+            echo empty_row($res_cols, 'users', 'No deleted residents', 'Residents you delete are kept here and can be restored.');
+        } else {
+            echo empty_row($res_cols, 'users', 'No residents yet', 'Add the first one to start the list.',
+                '<a class="btn" href="' . e(url('pages/resident_add.php')) . '">' . icon('user-plus') . ' New Resident</a>');
+        }
+    } ?>
     <?php while($r=$rows->fetch_assoc()):
-        
-
         $photo = trim((string)($r['photo'] ?? ''));
         $hasPhoto = ($photo !== '' && @file_exists(BASE_PATH . '/' . $photo));
         $initials = '';
@@ -163,12 +171,24 @@ include BASE_PATH . '/partials/header.php';?>
         // instead of its own column.
         $sex_lc  = strtolower(trim((string)($r['sex'] ?? '')));
         $sex_key = ($sex_lc === 'male' || $sex_lc === 'female') ? $sex_lc : '';
+
+        $occupation = trim((string)($r['occupation'] ?? ''));
+        $age        = trim((string)($r['age'] ?? ''));
+        $contact    = trim((string)($r['contact_no'] ?? ''));
+        $email      = trim((string)($r['email'] ?? ($r['account_email'] ?? '')));
+
+        $tags = [];
+        if ($is_yes($r['is_pwd'] ?? null))     { $tags[] = ['PWD', 'Person with Disability']; }
+        if ($is_yes($r['is_student'] ?? null)) { $tags[] = ['Student', 'Student']; }
+        if ($ip_col !== null && $is_yes($r[$ip_col] ?? null)) { $tags[] = ['IP', 'Indigenous People']; }
+        if ($fp_col !== null && $is_yes($r[$fp_col] ?? null)) { $tags[] = ['4Ps', '4Ps Beneficiary']; }
     ?>
     <tr>
-<td style="text-align:center">
+    <td>
+        <div class="cell-person">
             <span class="photo-chip">
             <?php if ($hasPhoto): ?>
-                <img src="<?= e(url($photo)) ?>" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:50%;display:block;margin:0 auto">
+                <img class="avatar avatar--sm" src="<?= e(url($photo)) ?>" alt="">
             <?php else: ?>
                 <span class="avatar avatar--sm" aria-hidden="true"><?= e($initials) ?></span>
             <?php endif; ?>
@@ -176,19 +196,29 @@ include BASE_PATH . '/partials/header.php';?>
                 <span class="photo-chip__sex photo-chip__sex--<?= $sex_key ?>" title="<?= e(ucfirst($sex_lc)) ?>" aria-label="<?= e(ucfirst($sex_lc)) ?>"><?= icon($sex_key) ?></span>
             <?php endif; ?>
             </span>
-        </td>
-         
-    <td><?= e(resident_name($r)) ?></td>
+            <span class="cell-stack">
+                <span class="cell-main"><?= e(resident_name($r)) ?></span>
+                <?php if ($occupation !== ''): ?><span class="cell-sub"><?= e($occupation) ?></span><?php endif; ?>
+            </span>
+        </div>
+    </td>
     <td><?= $cell($r['barangay_name']) ?></td>
-    <?php if(($_SESSION['role'] ?? '') !== 'admin'): ?><td><?= $cell($r['address'] ?? null) ?></td><?php endif; ?>
-    <td style="white-space:nowrap"><?= $cell($r['age']) ?></td>
-    <td><?= $cell($r['birth_date']) ?></td>
+    <?php if($show_purok): ?><td><?= $cell($r['address'] ?? null) ?></td><?php endif; ?>
+    <td>
+        <span class="cell-stack">
+            <span><?= e(fmt_date($r['birth_date'])) ?></span>
+            <?php if ($age !== ''): ?><span class="cell-sub"><?= e($age) ?> yrs old</span><?php endif; ?>
+        </span>
+    </td>
     <td><?= $cell($r['civil_status']) ?></td>
-    <td style="white-space:nowrap"><?= $cell($r['is_pwd']) ?></td>
-    <td style="white-space:nowrap"><?= $cell($r['is_student']) ?></td>
-    <td style="white-space:nowrap"><?= $cell($ip_col !== null ? ($r[$ip_col] ?? null) : null) ?></td>
-    <td style="white-space:nowrap"><?= $cell($fp_col !== null ? ($r[$fp_col] ?? null) : null) ?></td>
-    <td style="white-space:nowrap"><?php
+    <td>
+        <?php if ($tags): ?>
+            <span class="tags"><?php foreach ($tags as [$tag, $tag_title]): ?><span class="tag" title="<?= e($tag_title) ?>"><?= e($tag) ?></span><?php endforeach; ?></span>
+        <?php else: ?>
+            <span class="muted-meta" title="Not PWD, student, IP or 4Ps">&mdash;</span>
+        <?php endif; ?>
+    </td>
+    <td><?php
         $hhLabel = trim((string)($r['household_label'] ?? ($r['household_no'] ?? '')));
         if ($hhLabel !== '') {
             echo e($hhLabel);
@@ -201,10 +231,17 @@ include BASE_PATH . '/partials/header.php';?>
             echo '<span class="muted-meta">Unassigned</span>';
         }
     ?></td>
-    <td><?= $cell($r['occupation']) ?></td>
-    <td style="white-space:nowrap"><?= $cell($r['contact_no']) ?></td>
-    <td><?= $cell($r['email'] ?? ($r['account_email'] ?? null)) ?></td>
-    <td style="white-space:nowrap">
+    <td>
+        <?php if ($contact === '' && $email === ''): ?>
+            <span class="muted-meta">&mdash;</span>
+        <?php else: ?>
+        <span class="cell-stack">
+            <?php if ($contact !== ''): ?><span><?= e($contact) ?></span><?php endif; ?>
+            <?php if ($email !== ''): ?><span class="cell-sub"><?= e($email) ?></span><?php endif; ?>
+        </span>
+        <?php endif; ?>
+    </td>
+    <td class="col-actions">
     <?php if($view_deleted): ?>
     <a href="<?= e(url('actions/resident_restore.php?id=' . (int)$r['id'] . '&token=' . csrf_token())) ?>"
        class="btn-approve"

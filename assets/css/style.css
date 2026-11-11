@@ -935,9 +935,119 @@ td .btn-edit, td .btn-delete, td .btn-cancel, td .btn-approve, td .btn { margin:
 .kpi--violet { --kpi-accent: var(--violet); }
 .kpi--violet .kpi__icon { background: var(--violet-bg); color: var(--violet-text); }
 
-.kpi-grid--glance { grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
-.kpi--glance { gap: 6px; }
-.kpi--glance .kpi__value { margin: 0; }
+/* ---- Dashboard: one screen ------------------------------------------------
+   Title row with filters, a strip of figures, then a board of five panels.
+   On a desktop-sized window the board takes whatever height is left, so the
+   page itself does not scroll; smaller windows fall back to a normal page. */
+.dash { display: flex; flex-direction: column; gap: 14px; }
+.dash .card { margin-bottom: 0; }
+.dash-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.dash-head__title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; }
+.dash-head__scope { font-size: 14px; font-weight: 500; color: var(--muted); }
+.dash-head__filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dash-head__filters select { width: auto; min-width: 150px; height: 32px; padding-top: 0; padding-bottom: 0; }
+.dash-head__filters .btn { height: 32px; padding: 0 12px; }
+
+/* Tabs on the left, quick actions on the right, sharing one rule. */
+.dash-bar2 {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+    box-shadow: inset 0 -1px 0 var(--border);
+}
+.dash-bar2 .tabs { margin-bottom: 0; box-shadow: none; }
+.dash-bar2--plain { box-shadow: none; }
+.dash-quick { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; padding: 6px 0; }
+.dash-bar2--plain .dash-quick { margin-left: 0; padding: 0; }
+.dash-quick .btn { height: 32px; padding: 0 10px; font-size: 13px; }
+.dash-quick .btn .ico { color: var(--muted); }
+
+.dash-pane { display: flex; flex-direction: column; gap: 14px; }
+.dash-pane[hidden] { display: none; }
+
+/* Figures: nine small tiles in one row; each is a link. */
+.stat-strip { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 10px; }
+.stat-tile {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 6px;
+    grid-template-areas: "label label" "value icon";
+    padding: 10px 12px;
+    background: var(--card); color: var(--text); text-decoration: none;
+    border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+    transition: box-shadow .2s, transform .2s;
+}
+.stat-tile:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+.stat-tile__label { grid-area: label; font-size: 12px; font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-tile__icon.kpi__icon { grid-area: icon; width: 24px; height: 24px; border-radius: var(--radius-sm); }
+.stat-tile__icon .ico { width: 14px; height: 14px; }
+.stat-tile__value { grid-area: value; display: flex; align-items: baseline; gap: 6px; font-size: 24px; font-weight: 600; line-height: 28px; letter-spacing: -.025em; }
+.stat-tile__delta { font-size: 11px; font-weight: 600; letter-spacing: 0; white-space: nowrap; }
+
+/* Resident's own dashboard: four larger tiles, then requests, reports and a profile card. */
+.me { display: flex; flex-direction: column; gap: 20px; }
+.me .card { margin-bottom: 0; }
+.stat-strip--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.stat-strip--4 .stat-tile { padding: 16px 20px; }
+.stat-strip--4 .stat-tile__icon.kpi__icon { width: 36px; height: 36px; border-radius: var(--radius-lg); }
+.stat-strip--4 .stat-tile__icon .ico { width: 18px; height: 18px; }
+.stat-strip--4 .stat-tile__value { font-size: 30px; line-height: 36px; }
+.me-board { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+.me-board .stat-row { padding: 10px 0; }
+.stat-row__end { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.btn--sm { height: 28px; padding: 0 8px; font-size: 12px; }
+.btn--sm svg { width: 14px; height: 14px; }
+.profile-card__foot { padding: 16px 24px 20px; }
+@media (max-width: 1180px) {
+    .me-board { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .me-board .profile-card { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+    .stat-strip--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .me-board { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Board: charts on top (wide + narrow), three lists under them. */
+.dash-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.dash-board__wide { grid-column: span 2; }
+.dash-board .panel { padding: 16px; }
+.dash-board .panel__head { margin-bottom: 10px; }
+.dash-board .panel__title { font-size: 14px; }
+.dash-board .panel__sub { margin-top: 2px; font-size: 12px; }
+.dash-board .chart-box { height: 240px; }
+.panel__body { display: flex; flex-direction: column; min-height: 0; }
+.panel__empty { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.dash-board .mini-stats { gap: 8px; margin-bottom: 8px; }
+.dash-board .mini-stats--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dash-board .mini-stat { padding: 8px 10px; }
+.dash-board .mini-stat__value { font-size: 18px; }
+.dash-board .mini-stat__label { margin-top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-board .stat-row { padding: 7px 0; }
+.dash-board .stat-row__label { font-size: 13px; }
+.dash-board .stat-row__value { font-size: 14px; }
+.dash-board .activity__item { padding: 8px 0; gap: 10px; }
+.dash-board .activity__item:first-child { padding-top: 0; }
+.dash-board .activity__dot { width: 28px; height: 28px; }
+.dash-board .activity__title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; }
+.dash-board .activity__title > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-board .activity__time { display: inline; margin: 0; flex: none; font-size: 11px; font-weight: 400; }
+.dash-board .empty { padding: 12px 8px; }
+
+@media (min-width: 1200px) and (min-height: 680px) {
+    .dash { height: 100%; min-height: 0; }
+    .dash-pane { flex: 1; min-height: 0; }
+    .dash-board { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1.1fr) minmax(0, 1fr); }
+    .dash-board .panel { min-height: 0; overflow: hidden; }
+    .dash-board .panel__body { flex: 1; overflow-y: auto; }
+    .dash-board .chart-box { flex: 1; min-height: 0; height: auto; }
+    .dash-board .chart-box canvas { position: absolute; inset: 0; }
+    .dash-pane .table-wrap--sticky { flex: 1; min-height: 0; max-height: none; }
+}
+@media (max-width: 1199px) {
+    .stat-strip:not(.stat-strip--4) { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+}
+@media (max-width: 900px) {
+    .dash-board { grid-template-columns: minmax(0, 1fr); }
+    .dash-board__wide { grid-column: auto; }
+    .dash-quick { margin-left: 0; }
+}
 .kpi__head { display: flex; align-items: center; gap: 8px; }
 .kpi__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--kpi-accent, var(--secondary)); flex: none; }
 .kpi__spark { height: 44px; margin: 2px 0; }
@@ -946,8 +1056,6 @@ td .btn-edit, td .btn-delete, td .btn-cancel, td .btn-approve, td .btn { margin:
 .kpi__delta--up { color: var(--success-text); }
 .kpi__delta--down { color: var(--danger-text); }
 .kpi__delta--muted { color: var(--muted); font-weight: 500; }
-@media (max-width: 1280px) { .kpi-grid--glance { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 640px) { .kpi-grid--glance { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 
 /* ---- Dashboard panels --------------------------------------------------- */
@@ -1119,6 +1227,27 @@ tbody tr:last-child td { border-bottom: 0; }
    of room; only long text (a purpose, an address) wraps, at 20rem. */
 .table-wrap table { min-width: max-content; }
 .table-wrap td { max-width: 20rem; }
+
+/* Two-line cells: the value, and a quieter line under it (occupation, age, email). */
+.cell-person { display: flex; align-items: center; gap: 12px; }
+.cell-stack { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cell-main { font-weight: 500; color: var(--text); }
+.cell-sub { font-size: 12px; color: var(--muted); }
+
+/* Plain tags (no dot): a group a record belongs to, not a status. */
+.tags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.tag {
+    display: inline-flex; align-items: center; height: 20px; padding: 0 7px;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--muted-bg);
+    font-size: 11px; font-weight: 500; line-height: 1; white-space: nowrap; color: var(--text);
+}
+
+/* The action column stays pinned to the right edge, so row buttons are always
+   reachable even when a wide table scrolls sideways. */
+.col-actions { position: sticky; right: 0; z-index: 1; white-space: nowrap; }
+td.col-actions { background: var(--card); box-shadow: -1px 0 0 color-mix(in srgb, var(--border) 50%, transparent); }
+th.col-actions { box-shadow: -1px 0 0 var(--border); }
+tbody tr:hover td.col-actions { background: color-mix(in srgb, var(--muted-bg) 50%, var(--card)); }
 .table-wrap.card > h2, .table-wrap.card > h3 { padding: 16px 16px 12px; margin: 0; }
 
 /* Data breakdown table (right-aligned figures, sticky header and total) */
@@ -1129,6 +1258,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .data-table th.is-left, .data-table td.is-left { text-align: left; }
 .data-table thead th { position: sticky; top: 0; z-index: 1; }
 .data-table td.is-left { font-weight: 500; color: var(--text); }
+.data-table td.is-zero { color: var(--text-faint); }
 .data-table--compact { font-size: 12px; }
 .data-table--compact th, .data-table--compact td { padding: 8px 12px; }
 .data-table--compact th { height: 32px; padding-top: 0; padding-bottom: 0; }
@@ -1151,7 +1281,12 @@ tbody tr.data-table__total:hover td { background: var(--secondary-bg); }
     display: inline-flex; align-items: center; justify-content: center;
 }
 .empty__title { margin: 0; font-size: 14px; font-weight: 500; color: var(--text); }
-.empty__text { margin: 4px 0 0; font-size: 12px; max-width: 42ch; }
+.empty__text { margin: 4px 0 0; font-size: 12px; max-width: 46ch; }
+.empty__action { margin-top: 16px; }
+.empty__action .btn { height: 32px; padding: 0 12px; }
+/* An empty table: the state sits in one full-width row, with no hover tint. */
+tr.empty-row td { padding: 8px 16px; max-width: none; white-space: normal; }
+tbody tr.empty-row:hover td, tr.empty-row:hover td { background: none; }
 
 
 /* ===========================================================================
@@ -1202,6 +1337,56 @@ label > input[type="checkbox"] + span, label > input[type="radio"] + span { marg
 .field-hint { margin: 6px 0 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
 .muted-meta { font-size: 12px; color: var(--muted); font-weight: 500; white-space: nowrap; }
 
+/* A row of checkboxes that belong together (classification). */
+.check-group { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.check-group legend { padding: 0; width: 100%; }
+.check { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-weight: 400; font-size: 14px; cursor: pointer; }
+.check > input { margin: 0; }
+.check > input + span { margin-left: 0; }
+.form-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+
+/* ---- Profile page: a record card beside the editable details ------------- */
+.profile-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 24px; align-items: start; }
+.profile-layout .card { margin-bottom: 0; }
+.profile-card { padding: 0; overflow: hidden; }
+.profile-card__head {
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: 28px 24px 20px;
+    background: linear-gradient(180deg, var(--selected) 0, var(--selected) 64px, transparent 64px);
+}
+.profile-card__photo {
+    width: 88px; height: 88px; border-radius: 50%; object-fit: cover; flex: none;
+    border: 4px solid var(--card); background: var(--card);
+    box-shadow: var(--shadow-sm);
+}
+.profile-card__photo--initials {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--primary); color: var(--on-primary);
+    font-size: 28px; font-weight: 600; letter-spacing: .02em;
+}
+.profile-card__name { margin: 12px 0 0; font-size: 18px; font-weight: 600; color: var(--heading); }
+.profile-card__sub { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.profile-card__tags { justify-content: center; margin-top: 12px; }
+.profile-card__note {
+    display: flex; gap: 8px; margin: 0; padding: 12px 24px 16px;
+    font-size: 12px; line-height: 1.45; color: var(--muted);
+}
+.profile-card__note .ico { margin-top: 2px; }
+.profile-edit__title { margin: 0; font-size: 18px; font-weight: 600; }
+.profile-edit__sub { margin: 4px 0 20px; font-size: 14px; color: var(--muted); }
+
+/* Label / value pairs for a record (read-only). */
+.detail-list { margin: 0; padding: 0 24px; border-top: 1px solid var(--border); }
+.detail-list > div {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    padding: 10px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.detail-list dt { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.detail-list dd { margin: 0; font-size: 14px; font-weight: 500; text-align: right; overflow-wrap: anywhere; }
+@media (max-width: 980px) {
+    .profile-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* Toolbar: what the user can do on the left, filters and search after it. */
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
 .toolbar form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -1210,6 +1395,11 @@ label > input[type="checkbox"] + span, label > input[type="radio"] + span { marg
 .dash-bar select, .dash-bar input {
     width: auto; min-width: 180px; height: 32px; padding-top: 0; padding-bottom: 0;
 }
+
+/* Filter bars that apply on change (see app.js): no submit button needed,
+   and the bar dims while the new list loads. */
+form.is-auto button[type="submit"] { display: none; }
+form.is-submitting { opacity: .6; pointer-events: none; transition: opacity .15s; }
 
 /* Inline notices */
 .alert, .notice {

@@ -231,109 +231,118 @@ include BASE_PATH . '/partials/header.php';
     <div class="alert alert-danger" role="alert"><?= e($error) ?></div>
 <?php endif; ?>
 
-<div class="section-head">
-    <div>
-        <h2>My Details</h2>
-        <p>You may update your contact details and photo below</p>
-    </div>
-</div>
-
-<div class="card">
-    <form method="post" enctype="multipart/form-data">
-        <?= csrf_field() ?>
-        <div class="form-grid">
-            <div>
-                <label for="contact_no">Contact No.</label>
-                <input id="contact_no" name="contact_no" maxlength="30"
-                       value="<?= e($profile['contact_no'] ?? '') ?>" placeholder="e.g. 09171234567">
+<?php
+/* Left: who the barangay has on record (read-only). Right: what the resident
+   may change themselves. */
+$p_photo    = trim((string)($profile['photo'] ?? ''));
+$p_hasPhoto = ($p_photo !== '' && @file_exists(BASE_PATH . '/' . $p_photo));
+$p_initials = '';
+foreach (preg_split('/\s+/', trim(($profile['first_name'] ?? '') . ' ' . ($profile['last_name'] ?? ''))) as $part) {
+    if ($part !== '' && preg_match('/\p{L}/u', $part, $m)) { $p_initials .= strtoupper($m[0]); }
+}
+$p_initials = substr($p_initials, 0, 2) ?: '?';
+$p_yes  = function ($v) { return in_array(strtolower(trim((string)($v ?? ''))), ['yes', '1', 'y', 'true'], true); };
+$p_tags = [];
+if ($p_yes($profile['is_pwd'] ?? null))     { $p_tags[] = 'PWD'; }
+if ($p_yes($profile['is_student'] ?? null)) { $p_tags[] = 'Student'; }
+if ($ip_col !== null && $p_yes($profile[$ip_col] ?? null)) { $p_tags[] = 'Indigenous People'; }
+if ($fp_col !== null && $p_yes($profile[$fp_col] ?? null)) { $p_tags[] = '4Ps Beneficiary'; }
+$p_is_head = !empty($profile['hh_no']) && (int)($profile['hh_head_id'] ?? 0) === (int)($profile['id']);
+$p_birth   = trim((string)($profile['birth_date'] ?? ''));
+$p_sex     = trim((string)($profile['sex'] ?? ''));
+$p_purok   = trim((string)($profile['address'] ?? ''));
+?>
+<div class="profile-layout">
+    <aside class="card profile-card" aria-labelledby="profile-name">
+        <div class="profile-card__head">
+            <?php if ($p_hasPhoto): ?>
+                <img class="profile-card__photo" src="<?= e(url($p_photo)) ?>" alt="">
+            <?php else: ?>
+                <span class="profile-card__photo profile-card__photo--initials" aria-hidden="true"><?= e($p_initials) ?></span>
+            <?php endif; ?>
+            <h2 class="profile-card__name" id="profile-name"><?= e(resident_name($profile)) ?></h2>
+            <p class="profile-card__sub">Resident &middot; <?= e($profile['barangay_name'] ?? 'Barangay not set') ?></p>
+            <?php if ($p_tags || $p_is_head): ?>
+            <div class="tags profile-card__tags">
+                <?php if ($p_is_head): ?><span class="badge badge--info">Head of the family</span><?php endif; ?>
+                <?php foreach ($p_tags as $tag): ?><span class="tag"><?= e($tag) ?></span><?php endforeach; ?>
             </div>
-            <div>
-                <label for="email">Email address</label>
-                <input id="email" type="email" name="email" maxlength="255" autocomplete="email"
-                       value="<?= e($account_email) ?>" placeholder="Used for password recovery">
-            </div>
-            <div>
-                <label for="occupation">Occupation</label>
-                <input id="occupation" name="occupation" maxlength="100"
-                       value="<?= e($profile['occupation'] ?? '') ?>">
-            </div>
-            <div>
-                <label for="civil_status">Civil Status</label>
-                <select id="civil_status" name="civil_status">
-                    <option value="">Select</option>
-                    <option value="Single"<?= ($profile['civil_status'] ?? '') === 'Single' ? ' selected' : '' ?>>Single</option>
-                    <option value="Married"<?= ($profile['civil_status'] ?? '') === 'Married' ? ' selected' : '' ?>>Married</option>
-                    <option value="Widowed"<?= ($profile['civil_status'] ?? '') === 'Widowed' ? ' selected' : '' ?>>Widowed</option>
-                    <option value="Separated"<?= ($profile['civil_status'] ?? '') === 'Separated' ? ' selected' : '' ?>>Separated</option>
-                </select>
-            </div>
-            <div>
-                <label for="address">Purok / Zone</label>
-                <input id="address" name="address" maxlength="255"
-                       value="<?= e($profile['address'] ?? '') ?>">
-            </div>
-            <div>
-                <label for="photo">My Photo</label>
-                <input id="photo" type="file" name="photo" accept="image/*">
-                <?php if (!empty($profile['photo']) && @file_exists(BASE_PATH . '/' . $profile['photo'])): ?>
-                    <p class="field-hint">Current photo on file. Leave blank to keep it.</p>
-                    <img src="<?= e(url($profile['photo'])) ?>" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:10px;display:block;margin-top:8px">
-                <?php else: ?>
-                    <p class="field-hint">No photo on file yet. JPG, JPEG, PNG or GIF, up to 10MB.</p>
-                <?php endif; ?>
-            </div>
-            <div>
-                <span class="field-label">Classification</span>
-                <label><input type="checkbox" name="is_pwd" value="Yes"<?= in_array($profile['is_pwd'] ?? '', ['Yes', '1', 1], true) ? ' checked' : '' ?>> Person with Disability (PWD)</label>
-                <label><input type="checkbox" name="is_student" value="Yes"<?= in_array($profile['is_student'] ?? '', ['Yes', '1', 1], true) ? ' checked' : '' ?>> Student</label>
-                <?php if ($ip_col !== null): ?>
-                <label><input type="checkbox" name="is_ip" value="Yes"<?= in_array($profile[$ip_col] ?? '', ['Yes', '1', 1], true) ? ' checked' : '' ?>> Indigenous People (IP)</label>
-                <?php endif; ?>
-                <?php if ($fp_col !== null): ?>
-                <label><input type="checkbox" name="is_4ps" value="Yes"<?= in_array($profile[$fp_col] ?? '', ['Yes', '1', 1], true) ? ' checked' : '' ?>> 4Ps Beneficiary</label>
-                <?php endif; ?>
-            </div>
+            <?php endif; ?>
         </div>
-        <br>
-        <button class="btn" type="submit">Save My Details</button>
-    </form>
-</div>
 
-<div class="section-head">
-    <div>
-        <h2>Verified by the Barangay</h2>
-        <p>These details are maintained by your barangay office</p>
+        <dl class="detail-list">
+            <div><dt>Sex</dt><dd><?= $p_sex !== '' ? e($p_sex) : '<span class="muted-meta">&mdash;</span>' ?></dd></div>
+            <div><dt>Age</dt><dd><?php if ($ageKnown): ?><?= e($profile['age']) ?><?php else: ?><span class="muted-meta">Not yet verified</span><?php endif; ?></dd></div>
+            <div><dt>Birth date</dt><dd><?= $p_birth !== '' ? e(fmt_date($p_birth)) : '<span class="muted-meta">&mdash;</span>' ?></dd></div>
+            <div><dt>Household</dt><dd><?php if (!empty($profile['hh_no'])): ?><?= e($profile['hh_no']) ?><?php else: ?><span class="muted-meta">Not yet assigned</span><?php endif; ?></dd></div>
+            <div><dt>Purok / Zone</dt><dd><?= $p_purok !== '' ? e($p_purok) : '<span class="muted-meta">&mdash;</span>' ?></dd></div>
+            <div><dt>Email</dt><dd><?= $account_email !== '' ? e($account_email) : '<span class="muted-meta">None on file</span>' ?></dd></div>
+        </dl>
+
+        <p class="profile-card__note"><?= icon('shield', 'ico ico--xs') ?> Name, sex, age, birth date and household are kept by your barangay office<?php if (!$ageKnown || empty($profile['hh_no'])): ?>. Blank ones will be completed by your secretary<?php endif; ?>.</p>
+    </aside>
+
+    <div class="profile-edit">
+        <div class="card">
+            <h2 class="profile-edit__title">My Details</h2>
+            <p class="profile-edit__sub">You may update your contact details and photo.</p>
+            <form method="post" enctype="multipart/form-data">
+                <?= csrf_field() ?>
+                <div class="form-grid">
+                    <div>
+                        <label for="contact_no">Contact No.</label>
+                        <input id="contact_no" name="contact_no" maxlength="30"
+                               value="<?= e($profile['contact_no'] ?? '') ?>" placeholder="e.g. 09171234567">
+                    </div>
+                    <div>
+                        <label for="email">Email address</label>
+                        <input id="email" type="email" name="email" maxlength="255" autocomplete="email"
+                               value="<?= e($account_email) ?>" placeholder="Used for password recovery">
+                    </div>
+                    <div>
+                        <label for="occupation">Occupation</label>
+                        <input id="occupation" name="occupation" maxlength="100"
+                               value="<?= e($profile['occupation'] ?? '') ?>">
+                    </div>
+                    <div>
+                        <label for="civil_status">Civil Status</label>
+                        <select id="civil_status" name="civil_status">
+                            <option value="">Select</option>
+                            <option value="Single"<?= ($profile['civil_status'] ?? '') === 'Single' ? ' selected' : '' ?>>Single</option>
+                            <option value="Married"<?= ($profile['civil_status'] ?? '') === 'Married' ? ' selected' : '' ?>>Married</option>
+                            <option value="Widowed"<?= ($profile['civil_status'] ?? '') === 'Widowed' ? ' selected' : '' ?>>Widowed</option>
+                            <option value="Separated"<?= ($profile['civil_status'] ?? '') === 'Separated' ? ' selected' : '' ?>>Separated</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="address">Purok / Zone</label>
+                        <input id="address" name="address" maxlength="255"
+                               value="<?= e($profile['address'] ?? '') ?>">
+                    </div>
+                    <div>
+                        <label for="photo">My Photo</label>
+                        <input id="photo" type="file" name="photo" accept="image/*">
+                        <p class="field-hint"><?= $p_hasPhoto ? 'Leave blank to keep your current photo.' : 'No photo on file yet.' ?> JPG, JPEG, PNG or GIF, up to 10MB.</p>
+                    </div>
+                    <fieldset class="full check-group">
+                        <legend class="field-label">Classification</legend>
+                        <label class="check"><input type="checkbox" name="is_pwd" value="Yes"<?= in_array($profile['is_pwd'] ?? '', ['Yes', '1', 1], true) ? ' checked' : '' ?>> <span>Person with Disability (PWD)</span></label>
+                        <label class="check"><input type="checkbox" name="is_student" value="Yes"<?= in_array($profile['is_student'] ?? '', ['Yes', '1', 1], true) ? ' checked' : '' ?>> <span>Student</span></label>
+                        <?php if ($ip_col !== null): ?>
+                        <label class="check"><input type="checkbox" name="is_ip" value="Yes"<?= in_array($profile[$ip_col] ?? '', ['Yes', '1', 1], true) ? ' checked' : '' ?>> <span>Indigenous People (IP)</span></label>
+                        <?php endif; ?>
+                        <?php if ($fp_col !== null): ?>
+                        <label class="check"><input type="checkbox" name="is_4ps" value="Yes"<?= in_array($profile[$fp_col] ?? '', ['Yes', '1', 1], true) ? ' checked' : '' ?>> <span>4Ps Beneficiary</span></label>
+                        <?php endif; ?>
+                    </fieldset>
+                </div>
+                <div class="form-actions">
+                    <button class="btn" type="submit">Save My Details</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
-
-
-<div class="card table-wrap">
-    <table>
-        <tr><th>Field</th><th>Value</th></tr>
-        <tr><td>Full Name</td><td><?= e(resident_name($profile)) ?></td></tr>
-        <tr><td>Email address</td><td><?= e($account_email !== '' ? $account_email : '-') ?></td></tr>
-        <tr><td>Barangay</td><td><?= e($profile['barangay_name'] ?? 'Not set') ?></td></tr>
-        <tr><td>Sex</td><td><?= e($profile['sex'] ?? '-') ?></td></tr>
-        <tr>
-            <td>Age</td>
-            <td><?php if ($ageKnown): ?><?= e($profile['age']) ?><?php else: ?>
-                <span class="muted-meta">Not yet verified &mdash; your secretary will complete this</span>
-            <?php endif; ?></td>
-        </tr>
-        <tr><td>Birth Date</td><td><?= e($profile['birth_date'] ?? '-') ?></td></tr>
-        <tr><td>Household</td><td><?php if (!empty($profile['hh_no'])): ?><?= e($profile['hh_no']) ?><?= (int)($profile['hh_head_id'] ?? 0) === (int)($profile['id']) ? ' <span class="badge badge--info">Head of the family</span>' : '' ?><?php else: ?><span class="muted-meta">Not yet assigned &mdash; your barangay office will bind you to a household</span><?php endif; ?></td></tr>
-        <tr><td>PWD</td><td><?= e($profile['is_pwd'] ?? '-') ?></td></tr>
-        <tr><td>Student</td><td><?= e($profile['is_student'] ?? '-') ?></td></tr>
-        <tr><td>Indigenous People (IP)</td><td><?= e($ip_col !== null ? ($profile[$ip_col] ?? '-') : '-') ?></td></tr>
-        <tr><td>4Ps Beneficiary</td><td><?= e($fp_col !== null ? ($profile[$fp_col] ?? '-') : '-') ?></td></tr>
-    </table>
-</div>
-
-<?php if (!$ageKnown): ?>
-    <div class="alert" role="status">
-        Some details on your profile are still blank. Your barangay secretary will verify and complete them.
-    </div>
-<?php endif; ?>
 
 <?php endif; ?>
 

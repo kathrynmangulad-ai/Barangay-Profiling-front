@@ -35,7 +35,7 @@ include BASE_PATH . '/partials/header.php';?>
         </select>
         <?php endif; ?>
         <label class="sr-only" for="b_year">Year</label>
-        <select id="b_year" name="year" onchange="this.form.submit()">
+        <select id="b_year" name="year">
             <option value="0">All years</option>
             <?php foreach($years as $yy): ?>
             <option value="<?=(int)$yy?>"<?=$f_year===$yy?' selected':''?>><?=(int)$yy?></option>
@@ -52,9 +52,16 @@ include BASE_PATH . '/partials/header.php';?>
     <div class="card table-wrap">
         <table><tr><th>No.</th><th>Reporting Person</th>
         <th>Incident</th><th>Date/Time</th><th>Barangay</th>
-        <th>Action</th></tr><?php while($r=$rows->fetch_assoc()): ?>
+        <th>Action</th></tr>
+        <?php if (!$rows->num_rows) {
+            echo ($f_q !== '' || $f_brgy > 0 || $f_year > 0)
+                ? empty_row(6, 'search', 'No blotter records match', 'Try a different search, or reset the filters.')
+                : empty_row(6, 'clipboard', 'No blotter records yet', 'Incidents you record will be listed here.',
+                    '<a class="btn" href="' . e(url('pages/blotter_add.php')) . '">' . icon('plus') . ' New Blotter</a>');
+        } ?>
+        <?php while($r=$rows->fetch_assoc()): ?>
         <tr><td><?=e($r['blotter_no'])?></td><td><?=e($r['reporting_person'])?></td>
-        <td><?=e($r['incident_type'])?></td><td><?=e($r['incident_datetime'])?></td>
+        <td><?=e($r['incident_type'])?></td><td><?=e(fmt_datetime($r['incident_datetime']))?></td>
         <td><?=e($r['barangay_name'])?></td>
         <td><a class="btn" href="<?= e(url('pages/incident_report.php?id=' . $r['id'])) ?>">Receipt</a></td></tr>
         <?php endwhile; ?></table></div><?php include BASE_PATH . '/partials/footer.php';

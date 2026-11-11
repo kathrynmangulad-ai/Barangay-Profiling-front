@@ -273,6 +273,33 @@
     });
 
      
+    /* Filter bars apply as soon as a dropdown changes, so there is no extra
+       click. A bar made only of dropdowns hides its Filter/Apply button; one
+       with a text box keeps it (Enter works too). Without JavaScript the
+       button is still there and everything works as before. */
+    Array.prototype.forEach.call(
+        document.querySelectorAll('.toolbar form[method="get"], form.dash-head__filters'),
+        function (form) {
+            var selects = form.querySelectorAll('select');
+            if (!selects.length) { return; }
+            var hasTextBox = !!form.querySelector(
+                'input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button]), textarea');
+            if (!hasTextBox) { form.classList.add('is-auto'); }
+            Array.prototype.forEach.call(selects, function (sel) {
+                sel.addEventListener('change', function () {
+                    form.classList.add('is-submitting');
+                    if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+                });
+            });
+        }
+    );
+    /* Coming back with the Back button restores the page from cache: clear the "loading" look. */
+    window.addEventListener('pageshow', function () {
+        Array.prototype.forEach.call(document.querySelectorAll('form.is-submitting'), function (f) {
+            f.classList.remove('is-submitting');
+        });
+    });
+
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
             closeAllDropdowns(null);

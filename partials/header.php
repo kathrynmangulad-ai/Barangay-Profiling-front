@@ -99,6 +99,9 @@ if (!function_exists('icon')) {
             'palette'        => '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 11.996 2z"/>',
             'check'          => '<polyline points="20 6 9 17 4 12"/>',
             'chevron-right'  => '<path d="m9 18 6-6-6-6"/>',
+            'printer'        => '<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/>',
+            'leaf'           => '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
+            'wallet'         => '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
             'building'       => '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
         ];
         $path = $paths[$name] ?? '';
@@ -117,6 +120,26 @@ if (!function_exists('icon')) {
 
 
 
+
+if (!function_exists('empty_state')) {
+    /**
+     * The app's one empty state: a soft icon disc, a title, an optional line
+     * and an optional action (already-escaped HTML, e.g. a button link).
+     */
+    function empty_state($icon, $title, $text = '', $action_html = '') {
+        return '<div class="empty">'
+             . '<span class="empty__ico" aria-hidden="true">' . icon($icon) . '</span>'
+             . '<p class="empty__title">' . e($title) . '</p>'
+             . ($text !== '' ? '<p class="empty__text">' . e($text) . '</p>' : '')
+             . ($action_html !== '' ? '<div class="empty__action">' . $action_html . '</div>' : '')
+             . '</div>';
+    }
+    /** The same empty state as the only row of a table that has nothing to list. */
+    function empty_row($colspan, $icon, $title, $text = '', $action_html = '') {
+        return '<tr class="empty-row"><td colspan="' . (int)$colspan . '">'
+             . empty_state($icon, $title, $text, $action_html) . '</td></tr>';
+    }
+}
 
 if ($is_resident) {
     $nav_groups = [
@@ -139,7 +162,7 @@ if ($is_resident) {
         ],
         'Management' => [
             ['file' => 'pages/documents.php', 'label' => 'Document Requests',          'icon' => 'file-text'],
-            ['file' => 'pages/blotters.php',  'label' => 'Blotter / Incident Records', 'icon' => 'clipboard'],
+            ['file' => 'pages/blotters.php',  'label' => 'Blotter Records',            'icon' => 'clipboard'],
             ['file' => 'pages/reports.php',   'label' => 'Yearly Reports',             'icon' => 'trending-up'],
         ],
     ];

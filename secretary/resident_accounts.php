@@ -305,7 +305,7 @@ include BASE_PATH . '/partials/header.php';
     <table>
         <tr><th>Photo</th><th>Username</th><th>Resident Name</th><th>Email</th><th>Status</th><th>Registered</th><th>Action</th></tr>
         <?php if (!$accounts): ?>
-            <tr><td colspan="7" style="text-align:center">No resident accounts in this barangay yet.</td></tr>
+            <?= empty_row(7, 'users', 'No resident accounts yet', 'Residents who register for this barangay will be listed here.') ?>
         <?php endif; ?>
         <?php foreach ($accounts as $a): ?>
         <?php $a_email = trim((string)($a['account_email'] ?? '')) !== '' ? $a['account_email'] : ($a['resident_email'] ?? ''); ?>

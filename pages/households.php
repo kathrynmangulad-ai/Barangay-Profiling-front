@@ -46,7 +46,7 @@ if ($view_id > 0) {
         </tr></thead>
         <tbody>
         <?php if(!$members): ?>
-            <tr><td colspan="7" class="muted-meta">No live members in this household.</td></tr>
+            <?= empty_row(7, 'users', 'No members in this household', 'Residents assigned to this household will be listed here.') ?>
         <?php else: foreach($members as $m):
             $isHead=((int)$m['id']===(int)($hh['head_resident_id']??0));
             $nm=resident_name($m);
@@ -146,6 +146,11 @@ include BASE_PATH . '/partials/header.php';?>
         <th style="white-space:nowrap">Action</th>
     </tr></thead>
     <tbody>
+    <?php if ($total_rows === 0) {
+        echo ($q !== '' || $f_brgy > 0)
+            ? empty_row(7, 'search', 'No households match', 'Try a different search, or reset the filters.')
+            : empty_row(7, 'house', 'No households yet', 'A household is created when you add a resident and choose "Create a new household".');
+    } ?>
     <?php $headless = 0; while($r=$rows->fetch_assoc()):
         // A head is present when the pointer is set, the resident row still
         // exists (LEFT JOIN produced names) and that resident is not deleted.

@@ -99,6 +99,23 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 function e($value) { return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8'); }
+
+/* Dates as people read them: "Nov 5, 2001" and "Nov 11, 2026, 9:54 PM".
+   An empty or unreadable value comes back as a dash. Escape the result with e(). */
+if (!function_exists('fmt_date')) {
+    function fmt_date($value, $empty = '—') {
+        $s = trim((string)($value ?? ''));
+        if ($s === '' || strncmp($s, '0000-00-00', 10) === 0) { return $empty; }
+        $t = strtotime($s);
+        return $t === false ? $s : date('M j, Y', $t);
+    }
+    function fmt_datetime($value, $empty = '—') {
+        $s = trim((string)($value ?? ''));
+        if ($s === '' || strncmp($s, '0000-00-00', 10) === 0) { return $empty; }
+        $t = strtotime($s);
+        return $t === false ? $s : date('M j, Y, g:i A', $t);
+    }
+}
 function redirect($url) { header('Location: '.$url); exit; }
 function is_logged_in() { return isset($_SESSION['user_id']); }
 
