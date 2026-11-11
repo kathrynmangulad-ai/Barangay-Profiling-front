@@ -287,7 +287,6 @@ if($_SERVER['REQUEST_METHOD']==='POST')
 $hh_options = households_options($conn, (int)$r['barangay_id']);
 $page_scripts = ['assets/js/resident_age.js'];
 include BASE_PATH . '/partials/header.php';?>
-<h2>Edit Resident</h2>
 <?php if ($error !== ''): ?><div class="alert alert-danger" role="alert"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
 <form method="post" enctype="multipart/form-data"><?= csrf_field() ?><div class="form-grid">

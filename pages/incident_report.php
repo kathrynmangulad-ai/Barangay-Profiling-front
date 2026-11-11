@@ -4,6 +4,7 @@ require_once __DIR__ . '/../config/config.php';
 require_staff();
 
 $page_title = 'Incident Report Transaction Receipt';
+$page_head = false; // the receipt carries its own title
 
 $id = (int)($_GET['id'] ?? 0);
 $r = null;

@@ -1,10 +1,12 @@
 <?php
 /* ---------------------------------------------------------------------------
- * Themes (same set as GradeMaster, plus the original Barangay Teal default).
+ * Themes (same set as GradeMaster, plus the original Barangay Teal).
  *
  * The colours themselves live in assets/css/style.css: :root is Barangay Teal
- * and every other theme is an html[data-theme="<id>"] block. This file only
- * knows the list (for the picker) and boots the saved choice.
+ * (the base, applied when <html> has no data-theme) and every other theme is
+ * an html[data-theme="<id>"] block. This file only knows the list (for the
+ * picker) and boots the saved choice. With nothing saved the app opens in
+ * Mist Blue, GradeMaster's default.
  *
  * The choice is stored in localStorage, like GradeMaster:
  *   bms.theme            the browser's last theme (what the sign-in page shows)
@@ -17,7 +19,6 @@ if (!function_exists('bms_themes')) {
     function bms_themes(): array
     {
         return [
-            'teal'     => ['label' => 'Barangay Teal', 'swatch' => ['#F5F7FA', '#FFFFFF', '#063C46']],
             'mist'     => ['label' => 'Mist Blue',     'swatch' => ['#E5EBF4', '#F0F4F9', '#192C48']],
             'slate'    => ['label' => 'Slate Grey',    'swatch' => ['#E7ECF2', '#F1F4F7', '#1C2533']],
             'paper'    => ['label' => 'Warm Paper',    'swatch' => ['#F0ECE5', '#F9F6F2', '#2F241D']],
@@ -25,6 +26,7 @@ if (!function_exists('bms_themes')) {
             'lavender' => ['label' => 'Lavender',      'swatch' => ['#EEEAF4', '#F8F5FB', '#281B34']],
             'midnight' => ['label' => 'Midnight Blue', 'swatch' => ['#0A111E', '#111827', '#101D32']],
             'graphite' => ['label' => 'Graphite',      'swatch' => ['#0F1011', '#141516', '#08090A']],
+            'teal'     => ['label' => 'Barangay Teal', 'swatch' => ['#F5F7FA', '#FFFFFF', '#063C46']],
         ];
     }
 
@@ -37,10 +39,12 @@ if (!function_exists('bms_themes')) {
     {
         $ids = array_keys(bms_themes());
         $default = $ids[0];
-        $named = array_values(array_filter($ids, function ($id) use ($default) { return $id !== $default; }));
-        $js = '(function(){var k="bms.theme",u=' . $user_id . ',t=null,ok=' . json_encode($named) . ';'
+        // 'teal' is the stylesheet's base palette: it is shown by leaving
+        // data-theme off, so it is the one id that never becomes an attribute.
+        $js = '(function(){var k="bms.theme",u=' . $user_id . ',t=null,ok=' . json_encode($ids) . ';'
             . 'try{if(u){t=localStorage.getItem(k+":"+u);}if(!t){t=localStorage.getItem(k);}}catch(e){}'
-            . 'if(t&&ok.indexOf(t)!==-1){document.documentElement.setAttribute("data-theme",t);}})();';
+            . 'if(!t||ok.indexOf(t)===-1){t=' . json_encode($default) . ';}'
+            . 'if(t!=="teal"){document.documentElement.setAttribute("data-theme",t);}})();';
         return '<script>' . $js . '</script>';
     }
 }

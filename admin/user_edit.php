@@ -49,7 +49,6 @@ if($_SERVER['REQUEST_METHOD']==='POST')
 }
 
 include BASE_PATH . '/partials/header.php';?>
-<h2>Edit User</h2>
 <?php if($error!==''){ ?><div class="alert alert-danger"><?= e($error) ?></div><?php } ?>
 <div class="card"><form method="post"><?= csrf_field() ?><div class="form-grid">
 

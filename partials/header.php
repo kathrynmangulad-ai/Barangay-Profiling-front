@@ -98,6 +98,8 @@ if (!function_exists('icon')) {
             'female'         => '<circle cx="12" cy="8.5" r="5.5"/><line x1="12" y1="14" x2="12" y2="21"/><line x1="8.5" y1="18" x2="15.5" y2="18"/>',
             'palette'        => '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 11.996 2z"/>',
             'check'          => '<polyline points="20 6 9 17 4 12"/>',
+            'chevron-right'  => '<path d="m9 18 6-6-6-6"/>',
+            'building'       => '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
         ];
         $path = $paths[$name] ?? '';
         return '<svg class="'.$class.'" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'.$path.'</svg>';
@@ -118,36 +120,36 @@ if (!function_exists('icon')) {
 
 if ($is_resident) {
     $nav_groups = [
-        'MY ACCOUNT' => [
+        'My account' => [
             ['file' => 'resident/resident_dashboard.php', 'label' => 'My Dashboard', 'icon' => 'home'],
             ['file' => 'resident/resident_profile.php',   'label' => 'My Profile',  'icon' => 'user'],
         ],
-        'REQUESTS' => [
+        'Requests' => [
             ['file' => 'resident/document_request.php', 'label' => 'Request Document', 'icon' => 'file-plus'],
             ['file' => 'resident/blotter_request.php',  'label' => 'File a Blotter',  'icon' => 'alert-triangle'],
         ],
     ];
 } else {
     $nav_groups = [
-        'MAIN' => [
+        'Main' => [
             ['file' => 'pages/dashboard.php',    'label' => 'Dashboard',    'icon' => 'home'],
             ['file' => 'pages/residents.php',    'label' => 'Residents',    'icon' => 'users'],
             ['file' => 'pages/households.php',   'label' => 'Households',   'icon' => 'house'],
             ['file' => 'pages/resident_add.php', 'label' => 'New Resident', 'icon' => 'user-plus'],
         ],
-        'MANAGEMENT' => [
+        'Management' => [
             ['file' => 'pages/documents.php', 'label' => 'Document Requests',          'icon' => 'file-text'],
             ['file' => 'pages/blotters.php',  'label' => 'Blotter / Incident Records', 'icon' => 'clipboard'],
             ['file' => 'pages/reports.php',   'label' => 'Yearly Reports',             'icon' => 'trending-up'],
         ],
     ];
     if ($is_admin) {
-        $nav_groups['ADMINISTRATION'] = [
+        $nav_groups['Administration'] = [
             ['file' => 'admin/barangays.php', 'label' => 'Barangays', 'icon' => 'map'],
             ['file' => 'admin/users.php',     'label' => 'Users',     'icon' => 'shield'],
         ];
     } else {
-        $nav_groups['MY RESIDENTS'] = [
+        $nav_groups['My residents'] = [
             ['file' => 'secretary/resident_accounts.php', 'label' => 'Resident Accounts', 'icon' => 'shield'],
         ];
     }
@@ -179,13 +181,27 @@ if ($is_resident) {
 }
 
 $crumb = $page_crumb ?? ($page_title ?? 'Overview');
+
+/* Whose records this account works with, shown at the left of the top bar:
+   the account's own barangay, or every barangay for the administrator. */
+$scope_name = 'All Barangays';
+if (!$is_admin && !empty($_SESSION['barangay_id']) && isset($conn) && $conn instanceof mysqli) {
+    if ($sq = $conn->prepare('SELECT barangay_name FROM barangays WHERE id = ? LIMIT 1')) {
+        $scope_bid = (int)$_SESSION['barangay_id'];
+        $sq->bind_param('i', $scope_bid);
+        $sq->execute();
+        $scope_row = $sq->get_result()->fetch_assoc();
+        $sq->close();
+        $scope_name = trim((string)($scope_row['barangay_name'] ?? '')) ?: 'Sto. Niño';
+    }
+}
 ?>
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#063C46">
+<meta name="theme-color" content="#192C48">
 <?= bms_theme_boot_script((int)($_SESSION['user_id'] ?? 0)) ?>
 <title><?= e(($page_title ?? 'Barangay System')) ?> · Sto. Niño Barangay Management System</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -194,15 +210,23 @@ $crumb = $page_crumb ?? ($page_title ?? 'Overview');
 <link rel="stylesheet" href="<?= e(asset('css/style.css')) ?>">
 </head>
 <body>
+<script>try{if(localStorage.getItem('bms.sidebar')==='collapsed'){document.body.classList.add('sidebar-collapsed');}}catch(e){}</script>
 <div class="app">
     <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
         <div class="sidebar__brand">
-            <img class="sidebar__logo" src="<?= e(asset('img/logo.png')) ?>" alt="Sto. Niño Barangay logo">
-            <span class="sidebar__brand-text">
-                <span class="sidebar__system">Barangay Management System</span>
-                <span class="sidebar__barangay">Sto. Niño</span>
-            </span>
-            <button class="sidebar__collapse" type="button" data-sidebar-collapse aria-label="Collapse sidebar" title="Collapse sidebar"><?= icon('chevrons-left', 'ico ico--sm') ?></button>
+            <a class="sidebar__home" href="<?= e($home_href) ?>" title="Sto. Niño Barangay Management System">
+                <img class="sidebar__logo" src="<?= e(asset('img/logo.png')) ?>" alt="Sto. Niño Barangay logo">
+                <span class="sidebar__brand-text">
+                    <span class="sidebar__system">Sto. Niño</span>
+                    <span class="sidebar__barangay">Barangay System</span>
+                </span>
+            </a>
+            <?php /* Panel icon: its bar turns into a chevron on hover, showing which way the menu will move. */ ?>
+            <button class="sidebar__collapse" type="button" data-sidebar-collapse aria-label="Collapse menu" title="Collapse menu">
+                <svg class="tgl-rest" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5.5"/><path d="M8.5 8.5v7"/></svg>
+                <svg class="tgl-collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5.5"/><path d="M13.5 9 10.5 12l3 3"/></svg>
+                <svg class="tgl-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5.5"/><path d="M10.5 9l3 3-3 3"/></svg>
+            </button>
         </div>
 
         <nav class="sidebar__nav" aria-label="Sections">
@@ -216,39 +240,22 @@ $crumb = $page_crumb ?? ($page_title ?? 'Overview');
                 <?php endforeach; ?>
             <?php endforeach; ?>
         </nav>
-
-        <div class="sidebar__foot">
-            <div class="sidebar__user">
-                <span class="avatar" aria-hidden="true"><?= e($initials) ?></span>
-                <span class="sidebar__user-meta">
-                    <span class="sidebar__user-name"><?= e($full_name) ?></span>
-                    <span class="sidebar__user-role"><?= e($role_label) ?></span>
-                </span>
-            </div>
-            <a class="nav-link nav-link--logout" href="<?= e(url('auth/logout.php')) ?>" title="Logout">
-                <span class="nav-link__ico"><?= icon('log-out') ?></span>
-                <span class="nav-link__txt">Logout</span>
-            </a>
-        </div>
     </aside>
 
     <div class="sidebar-backdrop" data-sidebar-backdrop hidden></div>
 
     <main class="main">
+        <?php /* The top bar sits on the frame colour: where you are on the left, account and tools on the right. */ ?>
         <header class="topbar">
             <button class="icon-btn topbar__toggle" type="button" data-sidebar-toggle aria-label="Toggle navigation" aria-controls="sidebar" aria-expanded="false"><?= icon('menu') ?></button>
 
             <nav class="crumbs" aria-label="Breadcrumb">
-                <a class="crumbs__root" href="<?= e($home_href) ?>">Dashboard</a>
-                <span class="crumbs__sep" aria-hidden="true">/</span>
+                <a class="crumbs__root" href="<?= e($home_href) ?>"><?= icon('building') ?><span><?= e($scope_name) ?></span></a>
+                <span class="crumbs__sep" aria-hidden="true"><?= icon('chevron-right') ?></span>
                 <span class="crumbs__current" aria-current="page"><?= e($crumb) ?></span>
             </nav>
 
             <?php
-            
-
-
-
             $search_paths = [
                 'residents.php' => 'pages/residents.php',
                 'documents.php' => 'pages/documents.php',
@@ -268,6 +275,39 @@ $crumb = $page_crumb ?? ($page_title ?? 'Overview');
             <?php endif; ?>
 
             <div class="topbar__actions">
+                <?php /* The name and the avatar are one button that opens the account menu. */ ?>
+                <div class="dropdown" data-dropdown>
+                    <button class="profile-btn" type="button" data-dropdown-toggle aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
+                        <span class="profile-btn__meta">
+                            <span class="profile-btn__name"><?= e($full_name) ?></span>
+                            <span class="profile-btn__role"><?= e($role_label) ?></span>
+                        </span>
+                        <span class="avatar avatar--sm" aria-hidden="true"><?php if ($avatar_photo !== ''): ?><img src="<?= e(url($avatar_photo)) ?>" alt=""><?php else: ?><?= e($initials) ?><?php endif; ?></span>
+                    </button>
+                    <div class="dropdown__menu" data-dropdown-menu role="menu" hidden>
+                        <div class="dropdown__head">
+                            <span class="dropdown__name"><?= e($full_name) ?></span>
+                            <span class="dropdown__role"><?= e($role_label) ?></span>
+                        </div>
+                        <a class="dropdown__item" href="<?= e($home_href) ?>" role="menuitem"><?= icon('home', 'ico ico--sm') ?> Dashboard</a>
+                        <?php if ($is_resident): ?>
+                            <a class="dropdown__item" href="<?= e(url('resident/resident_profile.php')) ?>" role="menuitem"><?= icon('user', 'ico ico--sm') ?> My Profile</a>
+                        <?php else: ?>
+                            <a class="dropdown__item" href="<?= e(url('pages/residents.php')) ?>" role="menuitem"><?= icon('users', 'ico ico--sm') ?> Residents</a>
+                            <?php if ($is_admin): ?>
+                                <a class="dropdown__item" href="<?= e(url('admin/users.php')) ?>" role="menuitem"><?= icon('shield', 'ico ico--sm') ?> Manage Users</a>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                        <div class="dropdown__sep"></div>
+                        <a class="dropdown__item dropdown__item--danger" href="<?= e(url('auth/logout.php')) ?>" role="menuitem"><?= icon('log-out', 'ico ico--sm') ?> Logout</a>
+                    </div>
+                </div>
+
+                <a class="icon-btn" href="<?= e($is_resident ? url('resident/resident_profile.php') : url('pages/documents.php')) ?>" title="Pending document requests" aria-label="Notifications: <?= (int)$pending_notice ?> pending document requests">
+                    <?= icon('bell') ?>
+                    <?php if ($pending_notice > 0): ?><span class="icon-btn__badge"><?= (int)$pending_notice ?></span><?php endif; ?>
+                </a>
+
                 <div class="dropdown" data-dropdown data-theme-picker data-user-id="<?= (int)($_SESSION['user_id'] ?? 0) ?>">
                     <button class="icon-btn" type="button" data-dropdown-toggle aria-haspopup="true" aria-expanded="false" aria-label="Change theme" title="Theme">
                         <?= icon('palette') ?>
@@ -288,40 +328,16 @@ $crumb = $page_crumb ?? ($page_title ?? 'Overview');
                         <?php endforeach; ?>
                     </div>
                 </div>
-
-                <a class="icon-btn" href="<?= e($is_resident ? url('resident/resident_profile.php') : url('pages/documents.php')) ?>" title="Pending document requests" aria-label="Notifications: <?= (int)$pending_notice ?> pending document requests">
-                    <?= icon('bell') ?>
-                    <?php if ($pending_notice > 0): ?><span class="icon-btn__badge"><?= (int)$pending_notice ?></span><?php endif; ?>
-                </a>
-
-                <div class="dropdown" data-dropdown>
-                    <button class="profile-btn" type="button" data-dropdown-toggle aria-haspopup="true" aria-expanded="false">
-                        <span class="avatar avatar--sm" aria-hidden="true"><?php if ($avatar_photo !== ''): ?><img src="<?= e(url($avatar_photo)) ?>" alt=""><?php else: ?><?= e($initials) ?><?php endif; ?></span>
-                        <span class="profile-btn__meta">
-                            <span class="profile-btn__name"><?= e($full_name) ?></span>
-                            <span class="profile-btn__role"><?= e($role_label) ?></span>
-                        </span>
-                        <span class="profile-btn__caret" aria-hidden="true"><?= icon('chevron-down', 'ico ico--sm') ?></span>
-                    </button>
-                    <div class="dropdown__menu" data-dropdown-menu role="menu" hidden>
-                        <div class="dropdown__head">
-                            <span class="dropdown__name"><?= e($full_name) ?></span>
-                            <span class="dropdown__role"><?= e($role_label) ?></span>
-                        </div>
-                        <a class="dropdown__item" href="<?= e($home_href) ?>" role="menuitem"><?= icon('home', 'ico ico--sm') ?> Dashboard</a>
-                        <?php if ($is_resident): ?>
-                            <a class="dropdown__item" href="<?= e(url('resident/resident_profile.php')) ?>" role="menuitem"><?= icon('user', 'ico ico--sm') ?> My Profile</a>
-                        <?php else: ?>
-                            <a class="dropdown__item" href="<?= e(url('pages/residents.php')) ?>" role="menuitem"><?= icon('users', 'ico ico--sm') ?> Residents</a>
-                            <?php if ($is_admin): ?>
-                                <a class="dropdown__item" href="<?= e(url('admin/users.php')) ?>" role="menuitem"><?= icon('shield', 'ico ico--sm') ?> Manage Users</a>
-                            <?php endif; ?>
-                        <?php endif; ?>
-                        <div class="dropdown__sep"></div>
-                        <a class="dropdown__item dropdown__item--danger" href="<?= e(url('auth/logout.php')) ?>" role="menuitem"><?= icon('log-out', 'ico ico--sm') ?> Logout</a>
-                    </div>
-                </div>
             </div>
         </header>
 
-        <div class="page">
+        <?php /* The page is a rounded card inside the frame and the only part that scrolls. */ ?>
+        <div class="page" id="page">
+            <?php if (($page_head ?? true) && ($page_title ?? '') !== ''): ?>
+            <div class="page-head">
+                <div>
+                    <h1 class="page-head__title"><?= e($page_title) ?></h1>
+                    <?php if (($page_subtitle ?? '') !== ''): ?><p class="page-head__sub"><?= e($page_subtitle) ?></p><?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>

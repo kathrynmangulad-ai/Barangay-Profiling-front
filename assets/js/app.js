@@ -31,7 +31,15 @@
         if (backdrop) { backdrop.hidden = true; }
         if (toggleBtn) { toggleBtn.setAttribute('aria-expanded', 'false'); }
     }
+    function syncCollapseLabel() {
+        if (!collapseBtn) { return; }
+        var label = body.classList.contains('sidebar-collapsed') ? 'Expand menu' : 'Collapse menu';
+        collapseBtn.setAttribute('aria-label', label);
+        collapseBtn.setAttribute('title', label);
+        collapseBtn.setAttribute('aria-expanded', body.classList.contains('sidebar-collapsed') ? 'false' : 'true');
+    }
     function persistCollapse() {
+        syncCollapseLabel();
         try {
             localStorage.setItem('bms.sidebar',
                 body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'expanded');
@@ -43,6 +51,7 @@
             body.classList.add('sidebar-collapsed');
         }
     } catch (err) {   }
+    syncCollapseLabel();
 
     if (toggleBtn) {
         toggleBtn.addEventListener('click', function () {
@@ -109,6 +118,8 @@
     var picker = document.querySelector('[data-theme-picker]');
     if (picker) {
         var THEME_KEY = 'bms.theme';
+        /* The stylesheet's base palette: shown when <html> has no data-theme.
+           (The default for a first visit, Mist Blue, is set in partials/theme.php.) */
         var DEFAULT_THEME = 'teal';
         var root = document.documentElement;
         var userId = picker.getAttribute('data-user-id') || '';

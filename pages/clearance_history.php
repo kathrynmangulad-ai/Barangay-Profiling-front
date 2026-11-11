@@ -98,9 +98,8 @@ foreach ($clearances as $c) {
 
 include BASE_PATH . '/partials/header.php';
 ?>
-<div class="page">
+<div>
     <div class="toolbar">
-        <h2 style="margin:0">Barangay Clearance History</h2>
         <a class="btn btn--ghost" href="<?= e(url('pages/documents.php')) ?>">← Back to Document Requests</a>
     </div>
 
