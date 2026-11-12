@@ -1,8 +1,9 @@
 <?php
 require_once __DIR__ . '/../config/config.php'; require_once __DIR__ . '/../includes/mailer.php'; require_staff(); $id=(int)($_GET['id']??0);$page_title='Edit Resident';
-$s=$conn->prepare('SELECT r.*, u.email AS account_email, u.id AS account_id,
-                          h.household_no AS hh_no, h.head_resident_id AS hh_head_id
+$s=$conn->prepare('SELECT r.*, u.email AS account_email, u.id AS account_id, u.username AS account_username,
+                          b.barangay_name, h.household_no AS hh_no, h.head_resident_id AS hh_head_id
                      FROM residents r
+                     LEFT JOIN barangays b ON b.id = r.barangay_id
                      LEFT JOIN users u ON u.id = r.user_id
                      LEFT JOIN households h ON h.id = r.household_id
                     WHERE r.id=? AND r.deleted_at IS NULL LIMIT 1');
@@ -288,8 +289,56 @@ $hh_options = households_options($conn, (int)$r['barangay_id']);
 $page_scripts = ['assets/js/resident_age.js'];
 include BASE_PATH . '/partials/header.php';?>
 <?php if ($error !== ''): ?><div class="alert alert-danger" role="alert"><?= e($error) ?></div><?php endif; ?>
-<div class="card">
-<?php /* Four columns on a desktop so the whole form fits one screen; grouped by what the fields are about. */ ?>
+<?php
+/* Left: who this record is (read-only summary, same card as the resident's My Profile page).
+   Right: the editable form. */
+$p_photo    = trim((string)($r['photo'] ?? ''));
+$p_hasPhoto = ($p_photo !== '' && @file_exists(BASE_PATH . '/' . $p_photo));
+$p_initials = '';
+foreach (preg_split('/\s+/', trim(($r['first_name'] ?? '') . ' ' . ($r['last_name'] ?? ''))) as $part) {
+    if ($part !== '' && preg_match('/\p{L}/u', $part, $m)) { $p_initials .= strtoupper($m[0]); }
+}
+$p_initials = substr($p_initials, 0, 2) ?: '?';
+$p_tags = [];
+if ($r['is_pwd'] === 'Yes')     { $p_tags[] = 'PWD'; }
+if ($r['is_student'] === 'Yes') { $p_tags[] = 'Student'; }
+if ($ip_on) { $p_tags[] = 'Indigenous People'; }
+if ($fp_on) { $p_tags[] = '4Ps Beneficiary'; }
+$p_is_head = !empty($r['hh_no']) && (int)($r['hh_head_id'] ?? 0) === $id;
+$p_user    = trim((string)($r['account_username'] ?? ''));
+$p_added   = trim((string)($r['created_at'] ?? ''));
+?>
+<div class="profile-layout">
+    <aside class="card profile-card" aria-labelledby="profile-name">
+        <div class="profile-card__head">
+            <?php if ($p_hasPhoto): ?>
+                <img class="profile-card__photo" src="<?= e(url($p_photo)) ?>" alt="">
+            <?php else: ?>
+                <span class="profile-card__photo profile-card__photo--initials" aria-hidden="true"><?= e($p_initials) ?></span>
+            <?php endif; ?>
+            <h2 class="profile-card__name" id="profile-name"><?= e(resident_name($r)) ?></h2>
+            <p class="profile-card__sub">Resident &middot; <?= e($r['barangay_name'] ?? 'Barangay not set') ?></p>
+            <?php if ($p_tags || $p_is_head): ?>
+            <div class="tags profile-card__tags">
+                <?php if ($p_is_head): ?><span class="badge badge--info">Head of the family</span><?php endif; ?>
+                <?php foreach ($p_tags as $tag): ?><span class="tag"><?= e($tag) ?></span><?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+        </div>
+        <dl class="detail-list">
+            <div><dt>Resident ID</dt><dd><?= (int)$id ?></dd></div>
+            <div><dt>Household</dt><dd><?= !empty($r['hh_no']) ? e($r['hh_no']) : '<span class="muted-meta">Not yet assigned</span>' ?></dd></div>
+            <div><dt>Login account</dt><dd><?= $p_user !== '' ? e($p_user) : '<span class="muted-meta">None</span>' ?></dd></div>
+            <div><dt>Email</dt><dd><?= trim((string)($r['account_email'] ?? '')) !== '' ? e($r['account_email']) : '<span class="muted-meta">None on file</span>' ?></dd></div>
+            <div><dt>Added</dt><dd><?= $p_added !== '' ? e(fmt_date($p_added)) : '<span class="muted-meta">&mdash;</span>' ?></dd></div>
+        </dl>
+        <p class="profile-card__note"><?= icon('shield', 'ico ico--xs') ?> This summary updates after you save. Changes are logged under your account.</p>
+    </aside>
+
+    <div class="profile-edit">
+        <div class="card">
+            <h2 class="profile-edit__title">Resident Details</h2>
+            <p class="profile-edit__sub">Update the record kept by the barangay office.</p>
 <form method="post" enctype="multipart/form-data"><?= csrf_field() ?><div class="form-grid form-grid--4">
     <h2 class="form-section full">Personal</h2>
     <div><label for="last_name">Last Name</label><input id="last_name" name="last_name" value="<?=e($r['last_name'])?>" required pattern="[^\d]*" title="Letters only - no numbers"></div>
@@ -349,12 +398,7 @@ include BASE_PATH . '/partials/header.php';?>
     <div class="span-2">
         <label for="photo">Resident Photo</label>
         <input id="photo" type="file" name="photo" accept="image/*">
-        <?php if (!empty($r['photo']) && @file_exists(BASE_PATH . '/' . $r['photo'])): ?>
-            <p class="field-hint">Current photo on file. Leave blank to keep it.</p>
-            <img src="<?= e(url($r['photo'])) ?>" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:10px;display:block;margin-top:8px">
-        <?php else: ?>
-            <p class="field-hint">No photo on file yet.</p>
-        <?php endif; ?>
+        <p class="field-hint"><?= $p_hasPhoto ? 'Leave blank to keep the current photo.' : 'No photo on file yet.' ?></p>
     </div>
     <fieldset class="span-2 check-group">
         <legend class="field-label">Classification</legend>
@@ -368,7 +412,10 @@ include BASE_PATH . '/partials/header.php';?>
         <?php endif; ?>
     </fieldset>
 </div>
-<div class="form-actions"><button class="btn" type="submit">Update</button> <a class="btn btn--ghost" href="<?= e(url('pages/residents.php')) ?>">Cancel</a></div></form></div>
+<div class="form-actions"><button class="btn" type="submit">Update</button> <a class="btn btn--ghost" href="<?= e(url('pages/residents.php')) ?>">Cancel</a></div></form>
+        </div>
+    </div>
+</div>
 <script>
 (function () {
     // Show only the fields for the selected household mode.
