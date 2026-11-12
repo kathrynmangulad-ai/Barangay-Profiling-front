@@ -67,8 +67,8 @@ barangay_system/
   secretary/             resident_accounts
   resident/              resident_dashboard, resident_profile, document_request, blotter_request
   pages/                 dashboard, residents, resident_add/edit, documents,
-                         document_print, blotters, blotter_add, incident_report
-  actions/               POST/GET handlers: *_delete, *_restore, process/release_document, save_incident
+                         document_print, blotters, blotter_add
+  actions/               POST/GET handlers: *_delete, *_restore, process/release_document
   database/              schema.sql, migrations/00X_*.sql, README.md                    [web-denied]
   tools/                 create_admin, create_secretary, assign_roles, test_rbac, ...   [web-denied]
   assets/                css/, js/, img/

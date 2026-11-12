@@ -608,7 +608,6 @@ include BASE_PATH . '/partials/header.php';
         <a class="btn btn--ghost" href="<?= e(url('pages/resident_add.php')) ?>"><?= icon('user-plus') ?> Add Resident</a>
         <a class="btn btn--ghost" href="<?= e(url('pages/documents.php')) ?>"><?= icon('file-plus') ?> Document Request</a>
         <a class="btn btn--ghost" href="<?= e(url('pages/blotter_add.php')) ?>"><?= icon('alert-triangle') ?> New Blotter</a>
-        <a class="btn btn--ghost" href="<?= e(url('pages/incident_report.php')) ?>"><?= icon('receipt') ?> Incident Receipt</a>
         <?php if ($isAdmin): ?>
         <a class="btn btn--ghost" href="<?= e(url('admin/users.php')) ?>"><?= icon('shield') ?> Manage Users</a>
         <?php endif; ?>

@@ -8,9 +8,10 @@
  *   Barangay Case No.    blotter number
  *   For                  incident type
  *   complaint text       narrative
+ *   relief prayed for    relief sought
  *   Made this ...        date the report was made
  *
- * Nature of Case, the relief prayed for and the "received and filed" date are
+ * Nature of Case and the "received and filed" date are
  * not stored on a blotter record, so they print as blank lines. Every value
  * can be clicked on screen and corrected before printing (not saved).
  *
@@ -53,6 +54,7 @@ $respondent  = $oneLine($r['suspect_data']);
 $caseNo      = $oneLine($r['blotter_no']);
 $for         = $oneLine($r['incident_type']);
 $narrative   = trim((string)($r['narrative'] ?? ''));
+$relief      = trim((string)($r['relief_sought'] ?? ''));
 
 $made     = !empty($r['report_datetime']) ? strtotime((string)$r['report_datetime']) : (!empty($r['created_at']) ? strtotime((string)$r['created_at']) : false);
 $ordinal  = function (int $n) { $s = 'th'; if (!in_array($n % 100, [11, 12, 13], true)) { $s = [1 => 'st', 2 => 'nd', 3 => 'rd'][$n % 10] ?? 'th'; } return $n . $s; };
@@ -210,7 +212,7 @@ $fill = function (string $text, string $cls = '') { return '<span class="fill ' 
     <div class="ruled ruled--10" contenteditable="true" spellcheck="false"><?= e($narrative) ?></div>
 
     <p class="therefore"><b>THEREFORE,</b> I/We pray that the following relief/s be granted to me/us in accordance with law/ or equity.</p>
-    <div class="ruled ruled--3" contenteditable="true" spellcheck="false"></div>
+    <div class="ruled ruled--3" contenteditable="true" spellcheck="false"><?= e($relief) ?></div>
 
     <p class="dated">Made this <?= $fill($madeDay) ?> day of <?= $fill($madeMon) ?>, <?= e($year) ?>.</p>
     <div class="sign"><?= $fill($complainant) ?>Complainant/s</div>

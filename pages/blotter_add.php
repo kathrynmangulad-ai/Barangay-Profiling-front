@@ -5,7 +5,7 @@ $error = '';
 $old = [
     'barangay_id' => (int)($_SESSION['barangay_id'] ?? 0), 'blotter_no' => '', 'reporting_person' => '',
     'reporting_address' => '', 'incident_type' => '', 'report_datetime' => date('Y-m-d\TH:i'),
-    'incident_datetime' => '', 'place_of_incident' => '', 'suspect_data' => '', 'victim_data' => '', 'narrative' => '',
+    'incident_datetime' => '', 'place_of_incident' => '', 'suspect_data' => '', 'victim_data' => '', 'narrative' => '', 'relief_sought' => '',
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -27,16 +27,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     else {
         $stmt = $conn->prepare('INSERT INTO blotter_records
             (barangay_id, blotter_no, reporting_person, reporting_address, incident_type, report_datetime, incident_datetime,
-             place_of_incident, suspect_data, victim_data, narrative, recorded_by)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
+             place_of_incident, suspect_data, victim_data, narrative, relief_sought, recorded_by)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
         $recorded = (string)($_SESSION['full_name'] ?? '');
-        $stmt->bind_param('isssssssssss', $old['barangay_id'], $old['blotter_no'], $old['reporting_person'], $old['reporting_address'],
+        $stmt->bind_param('issssssssssss', $old['barangay_id'], $old['blotter_no'], $old['reporting_person'], $old['reporting_address'],
             $old['incident_type'], $report_dt, $incident_dt, $old['place_of_incident'], $old['suspect_data'], $old['victim_data'],
-            $old['narrative'], $recorded);
+            $old['narrative'], $old['relief_sought'], $recorded);
         if ($stmt->execute()) {
             $id = $conn->insert_id;
             $stmt->close();
-            redirect(url('pages/incident_report.php?id=' . $id));
+            redirect(url('pages/blotters.php'));
         }
         $error = 'The record could not be saved. Please try again.';
         $stmt->close();
@@ -75,7 +75,8 @@ include BASE_PATH . '/partials/header.php';?>
     <div><label for="suspect_data">Suspect Data</label><textarea id="suspect_data" name="suspect_data" rows="7"><?= e($old['suspect_data']) ?></textarea></div>
     <div><label for="victim_data">Victim Data</label><textarea id="victim_data" name="victim_data" rows="7"><?= e($old['victim_data']) ?></textarea></div>
     <div class="span-2"><label for="narrative">Narrative of Incident</label><textarea id="narrative" name="narrative" rows="7"><?= e($old['narrative']) ?></textarea></div>
+    <div class="span-2"><label for="relief_sought">Relief Sought <small>(printed on KP Form 7 after "THEREFORE, I/We pray...")</small></label><textarea id="relief_sought" name="relief_sought" rows="3"><?= e($old['relief_sought']) ?></textarea></div>
 </div>
-<div class="form-actions"><button class="btn" type="submit">Save and View Receipt</button>
+<div class="form-actions"><button class="btn" type="submit">Save Blotter</button>
     <a class="btn btn--ghost" href="<?= e(url('pages/blotters.php')) ?>">Cancel</a></div></form></div>
 <?php include BASE_PATH . '/partials/footer.php';

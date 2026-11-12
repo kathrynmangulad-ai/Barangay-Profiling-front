@@ -195,6 +195,7 @@ CREATE TABLE `blotter_records` (
   `suspect_data` text DEFAULT NULL,
   `victim_data` text DEFAULT NULL,
   `narrative` text DEFAULT NULL,
+  `relief_sought` text DEFAULT NULL,
   `recorded_by` varchar(150) DEFAULT NULL,
   `status` enum('Open','In Progress','Resolved','Cancelled') NOT NULL DEFAULT 'Open',
   `reviewed_by` int(11) DEFAULT NULL,
