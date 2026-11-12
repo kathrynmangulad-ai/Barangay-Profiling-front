@@ -295,7 +295,7 @@ include BASE_PATH . '/partials/header.php';?>
     <div><label for="last_name">Last Name</label><input id="last_name" name="last_name" value="<?=e($r['last_name'])?>" required pattern="[^\d]*" title="Letters only - no numbers"></div>
     <div><label for="first_name">First Name</label><input id="first_name" name="first_name" value="<?=e($r['first_name'])?>" required pattern="[^\d]*" title="Letters only - no numbers"></div>
     <div><label for="middle_name">Middle Name</label><input id="middle_name" name="middle_name" value="<?=e($r['middle_name']) ?>" pattern="[^\d]*" title="Letters only - no numbers"></div>
-    <div><label for="suffix">Suffix</label><input id="suffix" name="suffix" maxlength="20" pattern="[^\d]*" title="Letters only - no numbers" placeholder="e.g. Jr., Sr., III" value="<?=e($r['suffix'] ?? '') ?>"><p class="field-hint">Optional. Letters only.</p></div>
+    <div><label for="suffix">Suffix</label><input id="suffix" name="suffix" maxlength="20" pattern="[^\d]*" title="Letters only - no numbers" placeholder="e.g. Jr., Sr., III" value="<?=e($r['suffix'] ?? '') ?>"></div>
     <div>
         <label for="sex">Sex</label>
         <select id="sex" name="sex">
@@ -332,7 +332,7 @@ include BASE_PATH . '/partials/header.php';?>
     <div class="span-2" id="hh_new_fields"<?= $r['household_mode'] !== 'new' ? ' hidden' : '' ?>>
         <label for="household_no">New Household Number</label>
         <input id="household_no" name="household_no" maxlength="50" value="<?= e($r['household_form_no']) ?>" placeholder="HH-XXXX">
-        <p class="field-hint">Leave blank to auto-generate the next number. This resident becomes the <strong>head of the family</strong> of the new household.</p>
+        <p class="field-hint">Leave blank to auto-generate. This resident becomes the <strong>head of the family</strong>.</p>
     </div>
     <div class="span-2" id="hh_existing_fields"<?= $r['household_mode'] !== 'existing' ? ' hidden' : '' ?>>
         <label for="household_id">Household</label>
@@ -343,7 +343,7 @@ include BASE_PATH . '/partials/header.php';?>
             <?php endforeach; ?>
         </select>
         <label class="check" style="margin-top:10px"><input type="checkbox" id="is_head" name="is_head" value="1"<?= $r['is_head_form'] ? ' checked' : '' ?>> <span>Head of this household</span></label>
-        <p class="field-hint">Tick only when the household has no living head yet. Moving out of a household always releases its headship.</p>
+        <p class="field-hint">Tick only when the household has no living head yet.</p>
     </div>
     <h2 class="form-section full">Photo and classification</h2>
     <div class="span-2">

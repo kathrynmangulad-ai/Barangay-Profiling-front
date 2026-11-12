@@ -1330,15 +1330,18 @@ label > input[type="checkbox"] + span, label > input[type="radio"] + span { marg
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .full { grid-column: 1 / -1; }
 /* Denser forms: four columns on a desktop, grouped under small section headings. */
-.form-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 16px; }
-.form-grid--4 + .form-actions { margin-top: 16px; }
+.form-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 16px; }
+.form-grid--4 + .form-actions { margin-top: 12px; }
 .form-grid--4 .span-2 { grid-column: span 2; }
+.form-grid--4 label:not(.check) { margin-bottom: 4px; }
+.form-grid--4 input:not([type="checkbox"]):not([type="radio"]), .form-grid--4 select { height: 36px; padding-top: 6px; padding-bottom: 6px; }
+.form-grid--4 input[type="file"] { height: auto; padding: 5px 12px; }
+.form-grid--4 .field-hint { margin-top: 4px; line-height: 1.35; }
 .form-section {
-    margin: 6px 0 -2px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+    margin: 4px 0 -2px; padding-bottom: 4px; border-bottom: 1px solid var(--border);
     font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--heading);
 }
 .form-section:first-child { margin-top: 0; }
-.check-group--stack { flex-direction: column; gap: 8px; }
 @media (max-width: 1100px) { .form-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 768px) { .form-grid--4 { grid-template-columns: 1fr; } .form-grid--4 .span-2 { grid-column: auto; } }
 .is-invalid, .is-invalid:focus {
@@ -1352,6 +1355,7 @@ label > input[type="checkbox"] + span, label > input[type="radio"] + span { marg
 /* A row of checkboxes that belong together (classification). */
 .check-group { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px 20px; }
 .check-group legend { padding: 0; width: 100%; }
+.check-group--stack { flex-direction: column; flex-wrap: nowrap; justify-content: flex-start; align-self: start; gap: 6px; }
 .check { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-weight: 400; font-size: 14px; cursor: pointer; }
 .check > input { margin: 0; }
 .check > input + span { margin-left: 0; }

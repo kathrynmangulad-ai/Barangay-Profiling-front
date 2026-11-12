@@ -436,52 +436,26 @@ include BASE_PATH . '/partials/header.php';
 <div class="card">
     <form method="post" id="residentForm" enctype="multipart/form-data">
         <?= csrf_field() ?>
-        <div class="form-grid">
-
-            <?php if ($_SESSION['role'] === 'admin'): ?>
-                <div>
-                    <label for="barangay_id">Barangay</label>
-                    <select id="barangay_id" name="barangay_id" required<?= in_array('barangay_id', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
-                        <option value="">Select barangay</option>
-                        <?php while ($b = $barangays->fetch_assoc()): ?>
-                            <option value="<?= (int)$b['id'] ?>"<?= (int)$old['barangay_id'] === (int)$b['id'] ? ' selected' : '' ?>><?= e($b['barangay_name']) ?></option>
-                        <?php endwhile; ?>
-                    </select>
-                </div>
-            <?php endif; ?>
-
-            <div>
-                <label for="username">Login Username (optional)</label>
-                <input id="username" name="username" value="<?= e($old['username']) ?>" maxlength="100" autocomplete="off" placeholder="Leave blank for a profile-only record"<?= in_array('username', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
-                <p class="field-hint">Fill this in to also create a login account for the resident. A temporary password is generated and shown once after saving.</p>
-            </div>
-
+        <?php /* Four columns on a desktop so the whole form fits one screen; grouped by what the fields are about. */ ?>
+        <div class="form-grid form-grid--4">
+            <h2 class="form-section full">Personal</h2>
             <div>
                 <label for="last_name">Last Name</label>
                 <input id="last_name" name="last_name" value="<?= e($old['last_name']) ?>" required pattern="[^\d]*" title="Letters only - no numbers"<?= in_array('last_name', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
             </div>
-
             <div>
                 <label for="first_name">First Name</label>
                 <input id="first_name" name="first_name" value="<?= e($old['first_name']) ?>" required pattern="[^\d]*" title="Letters only - no numbers"<?= in_array('first_name', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
             </div>
-
             <div>
                 <label for="middle_name">Middle Name</label>
                 <input id="middle_name" name="middle_name" value="<?= e($old['middle_name']) ?>" pattern="[^\d]*" title="Letters only - no numbers">
             </div>
-
             <div>
                 <label for="suffix">Suffix</label>
                 <input id="suffix" name="suffix" value="<?= e($old['suffix']) ?>" maxlength="20" pattern="[^\d]*" title="Letters only - no numbers" placeholder="e.g. Jr., Sr., III"<?= in_array('suffix', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
-                <p class="field-hint">Generational suffix after the name (optional). Letters only, no numbers.</p>
+                
             </div>
-
-            <div>
-                <label for="email">Email address</label>
-                <input id="email" type="email" name="email" value="<?= e($old['email']) ?>" maxlength="255" autocomplete="email" placeholder="Used for password recovery (optional for walk-ins)"<?= in_array('email', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
-            </div>
-
             <div>
                 <label for="sex">Sex</label>
                 <select id="sex" name="sex">
@@ -490,12 +464,6 @@ include BASE_PATH . '/partials/header.php';
                     <option value="Female"<?= $old['sex'] === 'Female' ? ' selected' : '' ?>>Female</option>
                 </select>
             </div>
-
-            <div>
-                <label for="age">Age</label>
-                <input id="age" type="number" min="0" max="150" name="age" value="<?= e($old['age']) ?>" readonly title="Automatically computed from the birth date">
-            </div>
-
             <div>
                 <label for="birth_date">Birth Date</label>
                 <?php
@@ -508,7 +476,10 @@ include BASE_PATH . '/partials/header.php';
                 <input id="birth_date" type="date" name="birth_date" value="<?= e($old['birth_date']) ?>"
                        min="<?= e($bd_min) ?>" max="<?= e($bd_max) ?>"<?= in_array('birth_date', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
             </div>
-
+            <div>
+                <label for="age">Age</label>
+                <input id="age" type="number" min="0" max="150" name="age" value="<?= e($old['age']) ?>" readonly title="Automatically computed from the birth date">
+            </div>
             <div>
                 <label for="civil_status">Civil Status</label>
                 <select id="civil_status" name="civil_status">
@@ -520,16 +491,18 @@ include BASE_PATH . '/partials/header.php';
                 </select>
             </div>
 
-            <div>
-                <label for="occupation">Occupation</label>
-                <input id="occupation" name="occupation" value="<?= e($old['occupation']) ?>">
-            </div>
-
-            <div>
-                <label for="contact_no">Contact No.</label>
-                <input id="contact_no" name="contact_no" value="<?= e($old['contact_no']) ?>">
-            </div>
-
+            <h2 class="form-section full">Contact and address</h2>
+            <?php if ($_SESSION['role'] === 'admin'): ?>
+                <div>
+                    <label for="barangay_id">Barangay</label>
+                    <select id="barangay_id" name="barangay_id" required<?= in_array('barangay_id', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
+                        <option value="">Select barangay</option>
+                        <?php while ($b = $barangays->fetch_assoc()): ?>
+                            <option value="<?= (int)$b['id'] ?>"<?= (int)$old['barangay_id'] === (int)$b['id'] ? ' selected' : '' ?>><?= e($b['barangay_name']) ?></option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+            <?php endif; ?>
             <div>
                 <label for="address">Purok / Zone</label>
                 <select id="address" name="address">
@@ -543,23 +516,28 @@ include BASE_PATH . '/partials/header.php';
                     <?php endforeach; ?>
                 </select>
             </div>
-
             <div>
-                <span class="field-label">Household</span>
-                <div style="display:grid;gap:6px">
-                    <label><input type="radio" name="household_mode" value="new"<?= $old['household_mode'] === 'new' ? ' checked' : '' ?>> Create a new household</label>
-                    <label><input type="radio" name="household_mode" value="existing"<?= $old['household_mode'] === 'existing' ? ' checked' : '' ?>> Join an existing household</label>
-                    <label><input type="radio" name="household_mode" value="none"<?= $old['household_mode'] === 'none' ? ' checked' : '' ?>> No household yet (assign later)</label>
-                </div>
+                <label for="contact_no">Contact No.</label>
+                <input id="contact_no" name="contact_no" value="<?= e($old['contact_no']) ?>">
+            </div>
+            <div>
+                <label for="occupation">Occupation</label>
+                <input id="occupation" name="occupation" value="<?= e($old['occupation']) ?>">
             </div>
 
-            <div id="hh_new_fields"<?= $old['household_mode'] !== 'new' ? ' hidden' : '' ?>>
+            <h2 class="form-section full">Household</h2>
+            <fieldset class="span-2 check-group check-group--stack">
+                <legend class="sr-only">Household</legend>
+                <label class="check"><input type="radio" name="household_mode" value="new"<?= $old['household_mode'] === 'new' ? ' checked' : '' ?>> <span>Create a new household</span></label>
+                <label class="check"><input type="radio" name="household_mode" value="existing"<?= $old['household_mode'] === 'existing' ? ' checked' : '' ?>> <span>Join an existing household</span></label>
+                <label class="check"><input type="radio" name="household_mode" value="none"<?= $old['household_mode'] === 'none' ? ' checked' : '' ?>> <span>No household yet (assign later)</span></label>
+            </fieldset>
+            <div class="span-2" id="hh_new_fields"<?= $old['household_mode'] !== 'new' ? ' hidden' : '' ?>>
                 <label for="household_no">New Household Number</label>
                 <input id="household_no" name="household_no" maxlength="50" value="<?= e($old['household_no']) ?>" placeholder="HH-XXXX"<?= in_array('household_no', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
-                <p class="field-hint">Leave blank to auto-generate the next number for this barangay. This resident will be recorded as the <strong>head of the family</strong> of the new household.</p>
+                <p class="field-hint">Leave blank to auto-generate. This resident becomes the <strong>head of the family</strong>.</p>
             </div>
-
-            <div id="hh_existing_fields"<?= $old['household_mode'] !== 'existing' ? ' hidden' : '' ?>>
+            <div class="span-2" id="hh_existing_fields"<?= $old['household_mode'] !== 'existing' ? ' hidden' : '' ?>>
                 <label for="household_id">Household</label>
                 <select id="household_id" name="household_id"<?= in_array('household_id', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
                     <option value="0">Select household</option>
@@ -571,33 +549,37 @@ include BASE_PATH . '/partials/header.php';
                         <?php if ($use_groups): ?></optgroup><?php endif; ?>
                     <?php endforeach; ?>
                 </select>
-                <label style="margin-top:6px;display:inline-flex;gap:6px;align-items:center">
-                    <input type="checkbox" id="is_head" name="is_head" value="1"<?= $old['is_head'] ? ' checked' : '' ?><?= in_array('is_head', $error_fields, true) ? ' class="is-invalid"' : '' ?>>
-                    Head of this household
-                </label>
-                <p class="field-hint">Tick this only when the household has no living head yet (the list marks those as "No head yet").</p>
+                <label class="check" style="margin-top:10px"><input type="checkbox" id="is_head" name="is_head" value="1"<?= $old['is_head'] ? ' checked' : '' ?><?= in_array('is_head', $error_fields, true) ? ' class="is-invalid"' : '' ?>> <span>Head of this household</span></label>
+                <p class="field-hint">Tick only when the household has no living head yet.</p>
             </div>
 
+            <h2 class="form-section full">Account, photo and classification</h2>
+            <div class="span-2">
+                <label for="username">Login Username (optional)</label>
+                <input id="username" name="username" value="<?= e($old['username']) ?>" maxlength="100" autocomplete="off" placeholder="Leave blank for a profile-only record"<?= in_array('username', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
+                <p class="field-hint">Also creates a login account; the temporary password is shown once after saving.</p>
+            </div>
+            <div>
+                <label for="email">Email address</label>
+                <input id="email" type="email" name="email" value="<?= e($old['email']) ?>" maxlength="255" autocomplete="email" placeholder="For password recovery (optional)"<?= in_array('email', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
+            </div>
             <div>
                 <label for="photo">Resident Photo (optional)</label>
                 <input id="photo" type="file" name="photo" accept="image/*"<?= in_array('photo', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
             </div>
-
-            <div>
-                <span class="field-label">Classification</span>
-                <label><input type="checkbox" name="is_pwd" value="Yes"<?= $old['is_pwd'] ? ' checked' : '' ?>> Person with Disability (PWD)</label>
-                <label><input type="checkbox" name="is_student" value="Yes"<?= $old['is_student'] ? ' checked' : '' ?>> Student</label>
+            <fieldset class="full check-group">
+                <legend class="field-label">Classification</legend>
+                <label class="check"><input type="checkbox" name="is_pwd" value="Yes"<?= $old['is_pwd'] ? ' checked' : '' ?>> <span>PWD</span></label>
+                <label class="check"><input type="checkbox" name="is_student" value="Yes"<?= $old['is_student'] ? ' checked' : '' ?>> <span>Student</span></label>
                 <?php if ($ip_col !== null): ?>
-                <label><input type="checkbox" name="is_ip" value="Yes"<?= $old['is_ip'] ? ' checked' : '' ?>> Indigenous People (IP)</label>
+                <label class="check"><input type="checkbox" name="is_ip" value="Yes"<?= $old['is_ip'] ? ' checked' : '' ?>> <span>Indigenous People (IP)</span></label>
                 <?php endif; ?>
                 <?php if ($fp_col !== null): ?>
-                <label><input type="checkbox" name="is_4ps" value="Yes"<?= $old['is_4ps'] ? ' checked' : '' ?>> 4Ps Beneficiary</label>
+                <label class="check"><input type="checkbox" name="is_4ps" value="Yes"<?= $old['is_4ps'] ? ' checked' : '' ?>> <span>4Ps Beneficiary</span></label>
                 <?php endif; ?>
-            </div>
-
+            </fieldset>
         </div>
-        <br>
-        <div class="toolbar">
+        <div class="form-actions">
             <button type="submit" class="btn">Save Resident</button>
             <a class="btn btn--ghost" href="<?= e(url('pages/residents.php')) ?>">Cancel</a>
         </div>
