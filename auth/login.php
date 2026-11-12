@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $stmt = $conn->prepare(
             'SELECT id,username,password,full_name,role,barangay_id,status
-             FROM users WHERE username=? AND deleted_at IS NULL LIMIT 1'
+             FROM users WHERE BINARY username=? AND deleted_at IS NULL LIMIT 1'
         );
         $stmt->bind_param('s', $u);
         $stmt->execute();
