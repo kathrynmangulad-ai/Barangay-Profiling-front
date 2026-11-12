@@ -393,7 +393,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$page_scripts = ['assets/js/resident_age.js'];
+$page_scripts = ['assets/js/resident_age.js', 'assets/js/household_picker.js'];
 
 $barangays = $conn->query("SELECT * FROM barangays ORDER BY barangay_name");
 
@@ -538,7 +538,10 @@ include BASE_PATH . '/partials/header.php';
                 <p class="field-hint">Leave blank to auto-generate. This resident becomes the <strong>head of the family</strong>.</p>
             </div>
             <div class="span-2" id="hh_existing_fields"<?= $old['household_mode'] !== 'existing' ? ' hidden' : '' ?>>
-                <label for="household_id">Household</label>
+                <label for="household_search">Find a household</label>
+                <input id="household_search" type="search" autocomplete="off" placeholder="Type a household no. or the head's name" data-filter-select="#household_id" data-filter-hint="#household_search_hint">
+                <p class="field-hint" id="household_search_hint"></p>
+                <label for="household_id" style="margin-top:10px">Household</label>
                 <select id="household_id" name="household_id"<?= in_array('household_id', $error_fields, true) ? ' class="is-invalid" aria-invalid="true"' : '' ?>>
                     <option value="0">Select household</option>
                     <?php $use_groups = (count($hh_groups) > 1); foreach ($hh_groups as $g): if (!$g['items']) { continue; } ?>

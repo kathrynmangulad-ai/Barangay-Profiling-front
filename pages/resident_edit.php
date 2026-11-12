@@ -286,7 +286,7 @@ if($_SERVER['REQUEST_METHOD']==='POST')
 }
 
 $hh_options = households_options($conn, (int)$r['barangay_id']);
-$page_scripts = ['assets/js/resident_age.js'];
+$page_scripts = ['assets/js/resident_age.js', 'assets/js/household_picker.js'];
 include BASE_PATH . '/partials/header.php';?>
 <?php if ($error !== ''): ?><div class="alert alert-danger" role="alert"><?= e($error) ?></div><?php endif; ?>
 <?php
@@ -384,7 +384,10 @@ $p_added   = trim((string)($r['created_at'] ?? ''));
         <p class="field-hint">Leave blank to auto-generate. This resident becomes the <strong>head of the family</strong>.</p>
     </div>
     <div class="span-2" id="hh_existing_fields"<?= $r['household_mode'] !== 'existing' ? ' hidden' : '' ?>>
-        <label for="household_id">Household</label>
+        <label for="household_search">Find a household</label>
+        <input id="household_search" type="search" autocomplete="off" placeholder="Type a household no. or the head's name" data-filter-select="#household_id" data-filter-hint="#household_search_hint">
+        <p class="field-hint" id="household_search_hint"></p>
+        <label for="household_id" style="margin-top:10px">Household</label>
         <select id="household_id" name="household_id">
             <option value="0">No household (unassign)</option>
             <?php foreach ($hh_options as $it): $mem = (int)$it['members']; ?>
