@@ -63,5 +63,6 @@ include BASE_PATH . '/partials/header.php';?>
         <tr><td><?=e($r['blotter_no'])?></td><td><?=e($r['reporting_person'])?></td>
         <td><?=e($r['incident_type'])?></td><td><?=e(fmt_datetime($r['incident_datetime']))?></td>
         <td><?=e($r['barangay_name'])?></td>
-        <td><a class="btn" href="<?= e(url('pages/incident_report.php?id=' . $r['id'])) ?>">Receipt</a></td></tr>
+        <td class="col-actions"><a class="btn" href="<?= e(url('documents/kp_form_7.php?id=' . $r['id'])) ?>">Complaint Form</a>
+            <a class="btn btn--ghost" href="<?= e(url('pages/incident_report.php?id=' . $r['id'])) ?>">Receipt</a></td></tr>
         <?php endwhile; ?></table></div><?php include BASE_PATH . '/partials/footer.php';

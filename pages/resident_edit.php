@@ -289,12 +289,13 @@ $page_scripts = ['assets/js/resident_age.js'];
 include BASE_PATH . '/partials/header.php';?>
 <?php if ($error !== ''): ?><div class="alert alert-danger" role="alert"><?= e($error) ?></div><?php endif; ?>
 <div class="card">
-<form method="post" enctype="multipart/form-data"><?= csrf_field() ?><div class="form-grid">
+<?php /* Four columns on a desktop so the whole form fits one screen; grouped by what the fields are about. */ ?>
+<form method="post" enctype="multipart/form-data"><?= csrf_field() ?><div class="form-grid form-grid--4">
+    <h2 class="form-section full">Personal</h2>
     <div><label for="last_name">Last Name</label><input id="last_name" name="last_name" value="<?=e($r['last_name'])?>" required pattern="[^\d]*" title="Letters only - no numbers"></div>
     <div><label for="first_name">First Name</label><input id="first_name" name="first_name" value="<?=e($r['first_name'])?>" required pattern="[^\d]*" title="Letters only - no numbers"></div>
     <div><label for="middle_name">Middle Name</label><input id="middle_name" name="middle_name" value="<?=e($r['middle_name']) ?>" pattern="[^\d]*" title="Letters only - no numbers"></div>
-    <div><label for="suffix">Suffix</label><input id="suffix" name="suffix" maxlength="20" pattern="[^\d]*" title="Letters only - no numbers" placeholder="e.g. Jr., Sr., III" value="<?=e($r['suffix'] ?? '') ?>"><p class="field-hint">Generational suffix after the name (optional). Letters only, no numbers.</p></div>
-    <div><label for="email">Email address</label><input id="email" type="email" name="email" maxlength="255" autocomplete="email" value="<?=e($r['email'] ?? ($r['account_email'] ?? '')) ?>" placeholder="Contact email (optional)"></div>
+    <div><label for="suffix">Suffix</label><input id="suffix" name="suffix" maxlength="20" pattern="[^\d]*" title="Letters only - no numbers" placeholder="e.g. Jr., Sr., III" value="<?=e($r['suffix'] ?? '') ?>"><p class="field-hint">Optional. Letters only.</p></div>
     <div>
         <label for="sex">Sex</label>
         <select id="sex" name="sex">
@@ -303,9 +304,9 @@ include BASE_PATH . '/partials/header.php';?>
             <option value="Female"<?= $r['sex'] === 'Female' ? ' selected' : '' ?>>Female</option>
         </select>
     </div>
-    <div><label for="age">Age</label><input id="age" type="number" min="0" max="150" name="age" value="<?=e($r['age']) ?>" readonly title="Automatically computed from the birth date"></div>
     <?php $bd_min = date('Y-m-d', strtotime('-120 years')); $bd_max = date('Y-m-d'); ?>
     <div><label for="birth_date">Birth Date</label><input id="birth_date" type="date" name="birth_date" value="<?=e($r['birth_date']) ?>" min="<?= e($bd_min) ?>" max="<?= e($bd_max) ?>"></div>
+    <div><label for="age">Age</label><input id="age" type="number" min="0" max="150" name="age" value="<?=e($r['age']) ?>" readonly title="Automatically computed from the birth date"></div>
     <div>
         <label for="civil_status">Civil Status</label>
         <select id="civil_status" name="civil_status">
@@ -316,25 +317,24 @@ include BASE_PATH . '/partials/header.php';?>
             <option value="Separated"<?= $r['civil_status'] === 'Separated' ? ' selected' : '' ?>>Separated</option>
         </select>
     </div>
-    <div><label for="occupation">Occupation</label><input id="occupation" name="occupation" value="<?=e($r['occupation']) ?>"></div>
+    <h2 class="form-section full">Contact and address</h2>
     <div><label for="contact_no">Contact No.</label><input id="contact_no" name="contact_no" value="<?=e($r['contact_no']) ?>"></div>
+    <div><label for="email">Email address</label><input id="email" type="email" name="email" maxlength="255" autocomplete="email" value="<?=e($r['email'] ?? ($r['account_email'] ?? '')) ?>" placeholder="Contact email (optional)"></div>
     <div><label for="address">Purok/Zone</label><select id="address" name="address"><?php $zone_opts = ['Zone 1','Zone 2','Zone 3','Zone 4','Zone 5','Zone 6','Zone 7']; $cur_zone = trim((string)($r['address'] ?? '')); ?><option value=""<?= $cur_zone === '' ? ' selected' : '' ?>>Select</option><?php if ($cur_zone !== '' && !in_array($cur_zone, $zone_opts, true)): ?><option value="<?=e($cur_zone) ?>" selected><?=e($cur_zone) ?></option><?php endif; ?><?php foreach ($zone_opts as $zo): ?><option value="<?= $zo ?>"<?= $cur_zone === $zo ? ' selected' : '' ?>><?= $zo ?></option><?php endforeach; ?></select></div>
-    <div>
-        <span class="field-label">Household</span>
-        <div style="display:grid;gap:6px">
-            <label><input type="radio" name="household_mode" value="new"<?= $r['household_mode'] === 'new' ? ' checked' : '' ?>> Create a new household</label>
-            <label><input type="radio" name="household_mode" value="existing"<?= $r['household_mode'] === 'existing' ? ' checked' : '' ?>> Household of this resident</label>
-            <label><input type="radio" name="household_mode" value="none"<?= $r['household_mode'] === 'none' ? ' checked' : '' ?>> No household (unassign)</label>
-        </div>
-    </div>
-
-    <div id="hh_new_fields"<?= $r['household_mode'] !== 'new' ? ' hidden' : '' ?>>
+    <div><label for="occupation">Occupation</label><input id="occupation" name="occupation" value="<?=e($r['occupation']) ?>"></div>
+    <h2 class="form-section full">Household</h2>
+    <fieldset class="span-2 check-group check-group--stack">
+        <legend class="sr-only">Household</legend>
+        <label class="check"><input type="radio" name="household_mode" value="new"<?= $r['household_mode'] === 'new' ? ' checked' : '' ?>> <span>Create a new household</span></label>
+        <label class="check"><input type="radio" name="household_mode" value="existing"<?= $r['household_mode'] === 'existing' ? ' checked' : '' ?>> <span>Household of this resident</span></label>
+        <label class="check"><input type="radio" name="household_mode" value="none"<?= $r['household_mode'] === 'none' ? ' checked' : '' ?>> <span>No household (unassign)</span></label>
+    </fieldset>
+    <div class="span-2" id="hh_new_fields"<?= $r['household_mode'] !== 'new' ? ' hidden' : '' ?>>
         <label for="household_no">New Household Number</label>
         <input id="household_no" name="household_no" maxlength="50" value="<?= e($r['household_form_no']) ?>" placeholder="HH-XXXX">
         <p class="field-hint">Leave blank to auto-generate the next number. This resident becomes the <strong>head of the family</strong> of the new household.</p>
     </div>
-
-    <div id="hh_existing_fields"<?= $r['household_mode'] !== 'existing' ? ' hidden' : '' ?>>
+    <div class="span-2" id="hh_existing_fields"<?= $r['household_mode'] !== 'existing' ? ' hidden' : '' ?>>
         <label for="household_id">Household</label>
         <select id="household_id" name="household_id">
             <option value="0">No household (unassign)</option>
@@ -342,14 +342,11 @@ include BASE_PATH . '/partials/header.php';?>
             <option value="<?= (int)$it['id'] ?>"<?= (int)$r['household_form_id'] === (int)$it['id'] ? ' selected' : '' ?>><?= e($it['household_no']) ?> &mdash; <?= e($it['head_name'] ?: 'No head yet') ?> (<?= $mem ?> member<?= $mem === 1 ? '' : 's' ?>)</option>
             <?php endforeach; ?>
         </select>
-        <label style="margin-top:6px;display:inline-flex;gap:6px;align-items:center">
-            <input type="checkbox" id="is_head" name="is_head" value="1"<?= $r['is_head_form'] ? ' checked' : '' ?>>
-            Head of this household
-        </label>
+        <label class="check" style="margin-top:10px"><input type="checkbox" id="is_head" name="is_head" value="1"<?= $r['is_head_form'] ? ' checked' : '' ?>> <span>Head of this household</span></label>
         <p class="field-hint">Tick only when the household has no living head yet. Moving out of a household always releases its headship.</p>
     </div>
-
-    <div>
+    <h2 class="form-section full">Photo and classification</h2>
+    <div class="span-2">
         <label for="photo">Resident Photo</label>
         <input id="photo" type="file" name="photo" accept="image/*">
         <?php if (!empty($r['photo']) && @file_exists(BASE_PATH . '/' . $r['photo'])): ?>
@@ -359,20 +356,19 @@ include BASE_PATH . '/partials/header.php';?>
             <p class="field-hint">No photo on file yet.</p>
         <?php endif; ?>
     </div>
-
-    <div>
-        <span class="field-label">Classification</span>
-        <label><input type="checkbox" name="is_pwd" value="Yes"<?= $r['is_pwd'] === 'Yes' ? ' checked' : '' ?>> PWD</label>
-        <label><input type="checkbox" name="is_student" value="Yes"<?= $r['is_student'] === 'Yes' ? ' checked' : '' ?>> Student</label>
+    <fieldset class="span-2 check-group">
+        <legend class="field-label">Classification</legend>
+        <label class="check"><input type="checkbox" name="is_pwd" value="Yes"<?= $r['is_pwd'] === 'Yes' ? ' checked' : '' ?>> <span>PWD</span></label>
+        <label class="check"><input type="checkbox" name="is_student" value="Yes"<?= $r['is_student'] === 'Yes' ? ' checked' : '' ?>> <span>Student</span></label>
         <?php if ($ip_col !== null): ?>
-        <label><input type="checkbox" name="is_ip" value="Yes"<?= $ip_on ? ' checked' : '' ?>> Indigenous People (IP)</label>
+        <label class="check"><input type="checkbox" name="is_ip" value="Yes"<?= $ip_on ? ' checked' : '' ?>> <span>Indigenous People (IP)</span></label>
         <?php endif; ?>
         <?php if ($fp_col !== null): ?>
-        <label><input type="checkbox" name="is_4ps" value="Yes"<?= $fp_on ? ' checked' : '' ?>> 4Ps Beneficiary</label>
+        <label class="check"><input type="checkbox" name="is_4ps" value="Yes"<?= $fp_on ? ' checked' : '' ?>> <span>4Ps Beneficiary</span></label>
         <?php endif; ?>
-    </div>
-
-</div><br><button class="btn" type="submit">Update</button> <a class="btn btn--ghost" href="<?= e(url('pages/residents.php')) ?>">Cancel</a></form></div>
+    </fieldset>
+</div>
+<div class="form-actions"><button class="btn" type="submit">Update</button> <a class="btn btn--ghost" href="<?= e(url('pages/residents.php')) ?>">Cancel</a></div></form></div>
 <script>
 (function () {
     // Show only the fields for the selected household mode.
